@@ -12,7 +12,6 @@ let chr = Char.chr
 let string_init = String.init
 (* Define a function for initializing a string *)
 
-
 (*
    int2str: Takes an integer i0 and returns a string representation of i0.
 *)
@@ -34,7 +33,7 @@ let int2str i0 =
 
     let digit_value = (i0 / int_of_float (10. ** float_of_int (num_digits - i - 1))) mod 10 in
     (* Convert the digit value to a character and add to the string *)
-    
+
     char_of_int (48 + digit_value)
   ) in
 
