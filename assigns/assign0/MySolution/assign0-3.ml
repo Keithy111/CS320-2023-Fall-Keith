@@ -23,7 +23,7 @@ let str(c0) = String.make 1 c0
 (* This function converts an integer to its string representation *)
 let int2str i0 =
   (* Define a recursive helper function to convert the integer *)
-  let rec int_to_str_aux num acc =
+  let rec int_to_str num acc =
     if num = 0 then
       if acc = "" then "0" else acc
     else
@@ -43,12 +43,12 @@ let int2str i0 =
           String.get acc (i - String.length digit_str)
       ) in
       (* Recursively convert the remaining part of the number *)
-      int_to_str_aux (num / 10) new_acc
+      int_to_str (num / 10) new_acc
   in
   if i0 < 0 then
-    String.init (String.length (int_to_str_aux (abs i0) "" ) + 1) (fun i ->
+    String.init (String.length (int_to_str (abs i0) "" ) + 1) (fun i ->
       if i = 0 then '-'
-      else String.get (int_to_str_aux (abs i0) "") (i - 1)
+      else String.get (int_to_str (abs i0) "") (i - 1)
     )
   else
-    int_to_str_aux i0 ""
+    int_to_str i0 ""
