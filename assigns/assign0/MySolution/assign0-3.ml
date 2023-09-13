@@ -8,40 +8,25 @@ fun int2str(i0: int): string
 
 let chr = Char.chr
 (* Define a character-to-integer conversion function *)
-
+let ord = Char.code
+(*it converts a character to its corresponding integer code point in the Unicode character set*)
 let string_init = String.init
 (* Define a function for initializing a string *)
-
+let str(c0) = String.make 1 c0
 (*
    int2str: Takes an integer i0 and returns a string representation of i0.
 *)
-let int2str i0 =
-  let rec count_digits i count =
-    (* Helper function to count the number of digits in an integer *)
-    if i < 10 then
-      count + 1
+let int2str(i0: int): string =
+  let rec int2str_helper i acc =
+    if i = 0 then
+      acc
     else
-      count_digits (i / 10) (count + 1)
+      let digit = chr(ord('0') + (i mod 10)) in
+      let new_acc = str digit ^ acc in
+      int2str_helper (i / 10) new_acc
   in
 
-  let num_digits = count_digits i0 0 in
-  (* Calculate the number of digits in the input integer i0 *)
-
-
-  let str = string_init num_digits (fun i ->
-  (* Calculate the digit value at position i *)
-
-    let digit_value = (i0 / int_of_float (10. ** float_of_int (num_digits - i - 1))) mod 10 in
-    (* Convert the digit value to a character and add to the string *)
-
-    char_of_int (48 + digit_value)
-  ) in
-
-  str
-
-
-
-
-
-
-
+  (*handling the cases of zero and negative integers.*)
+  if i0 = 0 then "0"
+  else if i0 > 0 then int2str_helper i0 ""
+  else "-" ^ int2str_helper (-i0) ""
