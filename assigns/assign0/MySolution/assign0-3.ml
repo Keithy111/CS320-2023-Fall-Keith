@@ -20,21 +20,29 @@ let str(c0) = String.make 1 c0
 (*
    int2str: Takes an integer i0 and returns a string representation of i0.
 *)
+(* This function converts an integer to its string representation *)
 let int2str i0 =
+  (* Define a recursive helper function to convert the integer *)
   let rec int_to_str_aux num acc =
     if num = 0 then
       if acc = "" then "0" else acc
     else
+      (* Calculate the remainder when dividing by 10 to get the last digit *)
       let remainder = num mod 10 in
+      (* Convert the digit to a character *)
       let digit_char = chr (ord '0' + remainder) in
+      (* Convert the character back to a string *)
       let digit_str = str digit_char in
+      (* Calculate the length of the new accumulated string *)
       let new_acc_length = String.length digit_str + String.length acc in
+      (* Create the new accumulated string by interleaving characters from digit_str and acc *)
       let new_acc = string_init new_acc_length (fun i ->
         if i < String.length digit_str then
           string_get digit_str i
         else
           string_get acc (i - String.length digit_str)
       ) in
+      (* Recursively convert the remaining part of the number *)
       int_to_str_aux (num / 10) new_acc
   in
   int_to_str_aux i0 ""
