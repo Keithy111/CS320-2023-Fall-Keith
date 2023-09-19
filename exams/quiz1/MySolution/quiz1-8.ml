@@ -15,14 +15,9 @@
  you do not make use of recursion.
 
 *)
-
 let sort5 (a, b, c, d, e) =
-  let min_val = List.fold_left min a [b; c; d; e] in
-  let max_val = List.fold_left max a [b; c; d; e] in
-  let middle_val =
-    let sum = a + b + c + d + e in
-    sum - min_val - max_val
-  in
-  let sorted_list = [min_val; middle_val; max_val] in
-  let sorted_tuple = (List.nth sorted_list 0, List.nth sorted_list 1, List.nth sorted_list 2, List.nth sorted_list 3, List.nth sorted_list 4) in
-  sorted_tuple
+  let sorted_list = List.sort compare [a; b; c; d; e] in
+  match sorted_list with
+  | [x1; x2; x3; x4; x5] -> (x1, x2, x3, x4, x5)
+  | _ -> failwith "Input values must be distinct integers"
+;;
