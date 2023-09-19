@@ -12,4 +12,6 @@ let ff = (* WRITE YOUR CODE *)
 let () = assert (pp 200 100 ff = 100)
 let () = assert (pp 100 200 ff = -100)
 
-(* ************************************************ *)
+subtract z(pp(x,y)):int = 
+   f(x) - f(y) then ;;
+   
