@@ -10,15 +10,17 @@
    number inputs and false otherwise. *)
 
 let isPrime(n) =
-  if i <= 1 then false (* Numbers less than or equal to 1 are not prime *)
-  else if i == 2 then true (* 2 is prime *)
+let sqrt_n = int_of_float (sqrt (float_of_int n)) in
+let rec is_divisible d =
+  if d > sqrt_n then
+    true
+  else if n mod d = 0 then
+    false
   else
-    let rec is_divisible j =
-      if j * j > i then true
-    else if i mod j == 0 then false
-    else is_divisible (j + 1)
-  in
-  is_divisible 2
+    is_divisible (d + 1)
+in
+is_divisible 2
+
 in  
 
   (* Check if n is less than 2; if so, it's not prime *)
