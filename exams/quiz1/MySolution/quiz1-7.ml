@@ -10,17 +10,16 @@
    number inputs and false otherwise. *)
 
 let isPrime(n) =
-   let test(i: int): bool =
-   if i <= 1 then false  (* Numbers less than or equal to 1 are not prime *)
-   else if i == 2 then true (* 2 is prime *)
-   else
-     (* Check if i is divisible by any number from 2 to the square root of i *)
-     let rec is_divisible j =
-       if j * j > i then true
-       else if i mod j == 0 then false
-       else is_divisible (j + 1)
-     in
-     is_divisible 2
- in
+  if i <= 1 then false (* Numbers less than or equal to 1 are not prime *)
+  else if i == 2 then true (* 2 is prime *)
+  else
+    let rec is_divisible j =
+      if j * j > i then true
+    else if i mod j == 0 then false
+    else is_divisible (j + 1)
+  in
+  is_divisible 2
+in  
+
   (* Check if n is less than 2; if so, it's not prime *)
   if n < 2 then false else int1_forall(n)(test)
