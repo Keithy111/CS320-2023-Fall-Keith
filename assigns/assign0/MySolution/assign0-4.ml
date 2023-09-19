@@ -9,6 +9,8 @@ for natural numbers x.
 (And the empty sequence represents the integer 0)
 *)
 
+#use "./../assign0.ml";;
+
 (* Define the ord function to get the ASCII code of a character *)
 let ord = Char.code
 
