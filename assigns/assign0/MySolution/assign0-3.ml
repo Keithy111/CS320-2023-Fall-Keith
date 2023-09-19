@@ -6,16 +6,16 @@ fun int2str(i0: int): string
 *)
 
 
-let chr = Char.chr
+let chr = Char.chr;;
 (* Define a character-to-integer conversion function *)
-let ord = Char.code
+let ord = Char.code;;
 (*it converts a character to its corresponding integer code point in the Unicode character set*)
-let string_init = String.init
+let string_init = String.init;;
 (*function is used to generate the reversed string by fetching characters from cs in reverse order and placing them in result*)
-let string_length = String.length
-let string_get = String.get
+let string_length = String.length;;
+let string_get = String.get;;
 (*used to retrieve the character at a specific index within a given string*)
-let str(c0) = String.make 1 c0
+let str(c0) = String.make 1 c0;;
 
 (*
    int2str: Takes an integer i0 and returns a string representation of i0.
