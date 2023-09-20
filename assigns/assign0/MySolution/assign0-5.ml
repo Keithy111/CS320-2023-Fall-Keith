@@ -10,8 +10,8 @@ or your solution is disqualified.
 #use "./../assign0.ml";;
 
 let stringrev (cs: string): string =
-  let length = String.length cs in
-  let result = String.init length (fun i ->
-    String.get cs (length - 1 - i)
+  let length = string_length cs in
+  let result = string_init length (fun i ->
+    string_get (cs, (length - 1 - i))
   ) in
   result
