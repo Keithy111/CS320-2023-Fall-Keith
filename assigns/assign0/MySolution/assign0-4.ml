@@ -11,14 +11,6 @@ for natural numbers x.
 
 #use "./../assign0.ml";;
 
-(* Define the ord function to get the ASCII code of a character *)
-let ord = Char.code
-
-(* Define the string_length function to get the length of a string *)
-let string_length = String.length
-
-(* Define the string_get function to retrieve a character from a string at a specific index *)
-let string_get cs i0 = String.get cs i0
 
 let str2int (cs: string): int =
   let len = string_length cs in
@@ -31,7 +23,7 @@ let str2int (cs: string): int =
     else
       (* Extract the character at the current index, convert it to a digit value,
          and update the result by multiplying it by 10 and adding the digit value *)
-      let digit_value = ord (string_get cs i) - ord '0' in
+      let digit_value = ord string_get (cs, (i - ord '0')) in
       let updated_result = result * 10 + digit_value in
       (* Recursive call to process the next character in the string *)
       convert_to_int (i + 1) updated_result
