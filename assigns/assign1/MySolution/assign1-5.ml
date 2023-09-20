@@ -23,7 +23,7 @@ string_longest_ascend returns "111111".
 
 (* ****** ****** *)
 
-#use "./../assign0.ml";;
+#use "./../MyOCaml.ml";;
 
 let string_longest_ascend(xs: string): string =
   let len = String.length xs in
