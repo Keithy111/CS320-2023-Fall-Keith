@@ -7,11 +7,11 @@ Note that you are not allowed to use string concatenation
 or your solution is disqualified.
 *)
 
-#use "./..assign0.ml"
+#use "./..MyOCaml.ml"
 
 let stringrev (cs: string): string =
   let length = string_length cs in
   let result = string_init length (fun i ->
-    String.get cs (length - 1 - i)
+    string_get cs (length - 1 - i)
   ) in
   result
