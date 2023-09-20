@@ -25,29 +25,32 @@ string_longest_ascend returns "111111".
 
 #use "./../MyOCaml.ml";;
 
-let string_longest_ascend(xs: string): string =
-  let len = String.length xs in
-  if len <= 1 then xs (* Handle the case of empty string or single character string *)
+let string_longest_ascend(cs: string): string =
+  let n = String.length cs in
+  if n = 0 then "" (* Handle the case of an empty string *)
   else begin
-    let current = ref (String.sub xs 0 1) in
-    let longest = ref (String.sub xs 0 1) in
-    let prev_char = ref (String.get xs 0) in
-
-    for i = 1 to len - 1 do
-      let c = String.get xs i in
-      if Char.code c >= Char.code !prev_char then
-        current := !current ^ (String.make 1 c)
-      else begin
-        if String.length !current > String.length !longest then
-          longest := !current;
-        current := String.make 1 c;
-      end;
-      prev_char := c;
+    let longest_seq = ref (String.make 1 cs.[0]) in
+    let cur_seq = ref (String.make 1 cs.[0]) in
+    let i = ref 0 in
+    
+    while !i < n - 1 do
+      let cur_char = cs.[!i] in
+      let next_char = cs.[!i + 1] in
+      
+      if cur_char <= next_char then
+        (* Continue the ascending subsequence *)
+        cur_seq := !cur_seq ^ (String.make 1 next_char)
+      else
+        (* Start a new ascending subsequence *)
+        cur_seq := String.make 1 next_char;
+      
+      (* Update the longest subsequence if needed *)
+      if String.length !cur_seq > String.length !longest_seq then
+        longest_seq := !cur_seq;
+      
+      i := !i + 1;
     done;
-
-    if String.length !current > String.length !longest then
-      longest := !current;
-
-    !longest
+    
+    !longest_seq
   end
 ;;
