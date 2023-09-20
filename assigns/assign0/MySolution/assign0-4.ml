@@ -23,8 +23,8 @@ let str2int (cs: string): int =
     else
       (* Extract the character at the current index, convert it to a digit value,
          and update the result by multiplying it by 10 and adding the digit value *)
-      let digit_value = ord cs.[i] - ord '0' in
-      let updated_result = result * 10 + digit_value in
+         let digit_value = ord (string_get (cs, i)) - ord '0' in
+         let updated_result = result * 10 + digit_value in
       (* Recursive call to process the next character in the string *)
       convert_to_int (i + 1) updated_result
   in
