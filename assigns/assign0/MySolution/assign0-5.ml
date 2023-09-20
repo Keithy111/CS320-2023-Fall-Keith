@@ -7,7 +7,7 @@ Note that you are not allowed to use string concatenation
 or your solution is disqualified.
 *)
 
-#use "./..MyOCaml.ml"
+#use "./../assign0.ml";;
 
 let stringrev (cs: string): string =
   let length = String.length cs in
