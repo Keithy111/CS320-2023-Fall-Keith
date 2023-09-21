@@ -25,16 +25,9 @@ fun string_avoid_1324(cs: string): bool
 (* ****** ****** *)
 
 
-
-
 #use "./../MyOCaml.ml";;
 
-(* Define string_length and ord functions *)
-let string_length s = String.length s
-
-let ord c = Char.code c
-
-let rec is_1324_like s i =
+let is_1324_like s i =
   if i >= string_length s - 3 then
     false
   else
@@ -42,11 +35,9 @@ let rec is_1324_like s i =
     let c = ord s.[i + 1] in
     let b = ord s.[i + 2] in
     let d = ord s.[i + 3] in
-    if a < c && c < b && b < d then
-      true
-    else
-      is_1324_like s (i + 1)
+    a < c && c < b && b < d
 
+(* Function to check if a string has a 1324-like subsequence *)
 let rec has_1324_like_subsequence s i =
   if i >= string_length s - 3 then
     false
@@ -56,5 +47,6 @@ let rec has_1324_like_subsequence s i =
     else
       has_1324_like_subsequence s (i + 1)
 
+(* Main function to check if a string is 1324-avoid *)
 let string_avoid_1324 cs =
   not (has_1324_like_subsequence cs 0)
