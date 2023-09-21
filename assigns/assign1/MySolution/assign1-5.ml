@@ -25,12 +25,14 @@ string_longest_ascend returns "111111".
 
 #use "./../MyOCaml.ml";;
 
+let str(c0) = String.make 1 c0;;
+
 let string_longest_ascend(cs: string): string =
-  let n = String.length cs in
+  let n = string_length cs in
   if n = 0 then "" (* Handle the case of an empty string *)
   else begin
-    let longest_seq = ref (String.make 1 cs.[0]) in
-    let cur_seq = ref (String.make 1 cs.[0]) in
+    let longest_seq = ref (str cs.[0]) in
+    let cur_seq = ref (str cs.[0]) in
     let i = ref 0 in
     
     while !i < n - 1 do
@@ -39,13 +41,13 @@ let string_longest_ascend(cs: string): string =
       
       if cur_char <= next_char then
         (* Continue the ascending subsequence *)
-        cur_seq := !cur_seq ^ (String.make 1 next_char)
+        cur_seq := !cur_seq ^ (str next_char)
       else
         (* Start a new ascending subsequence *)
-        cur_seq := String.make 1 next_char;
+        cur_seq := str next_char;
       
       (* Update the longest subsequence if needed *)
-      if String.length !cur_seq > String.length !longest_seq then
+      if string_length !cur_seq > string_length !longest_seq then
         longest_seq := !cur_seq;
       
       i := !i + 1;
