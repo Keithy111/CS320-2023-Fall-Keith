@@ -29,6 +29,11 @@ fun string_avoid_1324(cs: string): bool
 
 #use "./../MyOCaml.ml";;
 
+(* Define string_length and ord functions *)
+let string_length s = String.length s
+
+let ord c = Char.code c
+
 let rec is_1324_like s i =
   if i >= string_length s - 3 then
     false
