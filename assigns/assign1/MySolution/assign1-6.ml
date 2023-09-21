@@ -26,24 +26,24 @@ fun string_avoid_1324(cs: string): bool
 
 
 
-#use "./../assign0.ml";;
+
 #use "./../MyOCaml.ml";;
 
 let rec is_1324_like s i =
-  if i >= String.length s - 3 then
+  if i >= string_length s - 3 then
     false
   else
-    let a = Char.code s.[i] in
-    let c = Char.code s.[i + 1] in
-    let b = Char.code s.[i + 2] in
-    let d = Char.code s.[i + 3] in
+    let a = ord s.[i] in
+    let c = ord s.[i + 1] in
+    let b = ord s.[i + 2] in
+    let d = ord s.[i + 3] in
     if a < c && c < b && b < d then
       true
     else
       is_1324_like s (i + 1)
 
 let rec has_1324_like_subsequence s i =
-  if i >= String.length s - 3 then
+  if i >= string_length s - 3 then
     false
   else
     if is_1324_like s i then

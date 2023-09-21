@@ -15,15 +15,44 @@ string_merge(cs1)(cs2) equals "1234abcde"
 (* ****** ****** *)
 
 
-#use "./../assign0.ml";;
 #use "./../MyOCaml.ml";;
 
-let string_merge(cs1: string)(cs2: string): string =
-  let merge_fwork work =
-    string_foreach cs1 work;
-    string_foreach cs2 work
-  in
+let fwork_merge(cs1: string)(cs2: string)(work: char -> unit): unit =
+  let len1 = string_length cs1 in
+  let len2 = string_length cs2 in
+  let i = ref 0 in
+  let j = ref 0 in
+  while !i < len1 && !j < len2 do
+    let char1 = string_get_at cs1 !i in
+    let char2 = string_get_at cs2 !j in
+    if char1 <= char2 then begin
+      work char1;
+      incr i;
+    end else begin
+      work char2;
+      incr j;
+    end;
+  done;
+  
+  (* Append any remaining characters from cs1 *)
+  while !i < len1 do
+    let char1 = string_get_at cs1 !i in
+    work char1;
+    incr i;
+  done;
 
-  string_make_fwork merge_fwork
+  (* Append any remaining characters from cs2 *)
+  while !j < len2 do
+    let char2 = string_get_at cs2 !j in
+    work char2;
+    incr j;
+  done;
 ;;
 
+let string_merge(cs1: string) (cs2: string): string =
+  let merged_chars = ref [] in
+  let append_char(char: char) = merged_chars := char :: !merged_chars in
+  fwork_merge cs1 cs2 append_char;
+  let merged_string = string_make_fwork (fun work -> List.iter work !merged_chars) in
+  merged_string;
+;;
