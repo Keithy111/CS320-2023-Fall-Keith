@@ -16,37 +16,18 @@ foldleft_to_iforeach
 #use "./../../assign2.ml";;
 #use "./../../../../classlib/OCaml/MyOCaml.ml";;
 
-let rec mylist_length (xs: 'a mylist): int =
-  match xs with
-  | MyNil -> 0
-  | MyCons(_, xs) -> 1 + mylist_length xs
-  | MySnoc(xs, _) -> 1 + mylist_length xs
-  | MyReverse(xs) -> mylist_length xs
-  | MyAppend2(xs1, xs2) -> mylist_length xs1 + mylist_length xs2
-
-let foldleft_to_iforeach (foldleft: ('xs, 'x0, int) foldleft): ('xs, 'x0) iforeach =
+let rec foldleft_to_iforeach (foldleft: ('xs, 'x0, int) foldleft): ('xs, 'x0) iforeach =
   fun xs f ->
-    let rec loop idx acc xs =
+    let rec loop i r0 =
       match xs with
-      | MyNil -> ()
-      | MyCons (x, rest) ->
-        let acc' = foldleft acc x (fun a b -> a) in
-        f idx acc';
-        loop (idx + 1) acc' rest
-      | MySnoc (rest, x) ->
-        let acc' = foldleft acc x (fun a b -> a) in
-        f idx acc';
-        loop (idx + 1) acc' rest
-      | MyReverse xs' ->
-        let acc' = foldleft acc xs' (fun a b -> a) in
-        f idx acc';
-        loop (idx + 1) acc' xs'
-      | MyAppend2 (xs1, xs2) ->
-        let acc' = foldleft acc xs1 (fun a b -> a) in
-        loop idx acc' xs1;
-        loop (idx + mylist_length xs1) acc' xs2
+      | [] -> ()
+      | x :: xs' ->
+        f i x;
+        let r0' = f r0 x in
+        loop (i + 1) r0'
     in
-    loop 0 foldleft xs
+    loop 0 foldleft
+
 
   
 
