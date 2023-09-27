@@ -17,19 +17,9 @@ foldleft_to_iforeach
 #use "./../../../../classlib/OCaml/MyOCaml.ml";;
 
 let foldleft_to_iforeach (foldleft: ('xs, 'x0, int) foldleft): ('xs, 'x0) iforeach =
-  fun xs f ->
-    let rec loop i r0 xs =
-      match xs with
-      | [] -> ()
-      | x :: xs' ->
-        f i x;
-        let r0' = f r0 x in
-        loop (i + 1) r0' xs'
-    in
-    loop 0 foldleft xs;
+  fun xs work ->
+    let _ = foldleft(xs)(0)(fun i x -> work x )in
     ()
-
-
 
   
 
