@@ -330,7 +330,8 @@ let list_foldleft(xs) =
 ;;
 
 (** **)
-let string_foldleft(cs) =
+let string_
+(cs) =
   foreach_to_foldleft(string_foreach)(cs)
 ;;
 
