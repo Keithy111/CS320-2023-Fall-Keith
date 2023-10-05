@@ -20,4 +20,8 @@
 # *)
 
 def foreach_to_get_at(foreach): # your implementation below
+  list = []
+  for i in foreach(xs)
+    list.append(foreach(xs[i])(work))
+    return list_get_at(list(i));
 

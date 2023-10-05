@@ -17,4 +17,8 @@ match xs with
 
 (* ************************************************ *)
 
-let list_append(xs: 'a list): 'a list = ....
+let rec list_append(xs: 'a list): 'a list = ....
+(work:'a -> b -> unit ):unit =
+match xs with
+[] -> ys | x1 :: xs -> x1 :: list_append(xs)(ys)(work)
+
