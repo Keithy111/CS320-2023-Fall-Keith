@@ -19,12 +19,10 @@ let the_ln2_stream: float stream = fun() -> ...
 *)
 #use "./../../../../classlib/OCaml/MyOCaml.ml";;
 
-type 'a stream = unit -> 'a * 'a stream
-
-let the_ln2_stream: float stream = fun() ->
-    let rec streamer(currNum: float, sum: float, sign: float): float stream = fun() ->
-        let nextNum = sign /. currNum in
-        let summ = sum +. nextNum in
-        strcon_cons(summ, streamer(currNum +. 1.0, summ, -.sign))
-    in 
-        strcon_cons(1.0, streamer(2.0, 1.0, -.1.0))
+let the_ln2_stream: float stream = 
+  let rec streamer n sign denominator sum = fun () ->
+    let summ = sign /. denominator in 
+    let new_sum = if n = 1 then 1.0 else sum +. summ in 
+    StrCons (new_sum, streamer (n+1)(-.sign)(denominator +.1.0) new_sum)
+  in
+  streamer 1 (1.0)(1.0) (1.0)
