@@ -7,7 +7,7 @@ sys.path.append('./../../MySolution/Python')
 sys.path.append("./../../../../classlib/Python")
 ####################################################
 from MyPython import *
-from assign4_5 import *
+from assigns.assign4.MySolution.Python.assign4_5 import *
 ####################################################
 assert(len(list_of_buddies("love")) == 25*len("love"))
 assert(len(list_of_buddies("water")) == 25*len("water"))
