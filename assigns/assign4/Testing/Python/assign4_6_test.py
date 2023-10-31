@@ -7,7 +7,7 @@ sys.path.append('./../../MySolution/Python')
 sys.path.append("./../../../../classlib/Python")
 ####################################################
 from MyPython import *
-from assign4_6 import *
+from assigns.assign4.MySolution.Python.assign4_6 import *
 ####################################################
 def cube_sum(ij):
     i = ij[0]
