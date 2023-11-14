@@ -45,3 +45,38 @@ type sexpr =
   | SMul of sexpr list (* (mul e1 e2 ...) *)
 
 (* ****** ****** *)
+let rec expr_to_sexpr (e: sexpr) : sexpr =
+  match e with
+  | SInt n -> SInt n
+  | SAdd es -> SAdd (List.map expr_to_sexpr es)
+  | SMul es -> SMul (List.map expr_to_sexpr es)
+
+let rec sexpr_to_string (s: sexpr) : string =
+  match s with
+  | SInt n -> string_of_int n
+  | SAdd es -> "(add " ^ String.concat " " (List.map sexpr_to_string es) ^ ")"
+  | SMul es -> "(mul " ^ String.concat " " (List.map sexpr_to_string es) ^ ")"
+
+let rec parse_sexpr () : sexpr parser =
+  parse_sint () <|> parse_sadd () <|> parse_smul ()
+
+and parse_sint () : sexpr parser =
+  let* n = natural in
+  pure (SInt n) << whitespaces
+
+and parse_sadd () : sexpr parser =
+  let* _ = keyword "(add" in
+  let* es = many1' parse_sexpr in
+  let* _ = keyword ")" in
+  pure (SAdd es)
+
+and parse_smul () : sexpr parser =
+  let* _ = keyword "(mul" in
+  let* es = many1' parse_sexpr in
+  let* _ = keyword ")" in
+  pure (SMul es)
+
+let sexpr_parse (s : string) : sexpr option =
+  match string_parse (parse_sexpr ()) s with
+  | Some (e, []) -> Some e
+  | _ -> None
