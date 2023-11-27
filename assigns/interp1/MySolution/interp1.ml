@@ -11,75 +11,124 @@ Notes:
 2. You may NOT use OCaml standard library functions directly.
 
 *)
-type config = {
-  stack: value list;
-  trace: string list;
-  program: command list;
-}
+type const =
+  | Int of int
+  | Bool of bool
+  | Unit
 
-and command =
-  | Push of int
+type com =
+  | Push of const
+  | Pop
+  | Trace
   | Add
   | Sub
   | Mul
   | Div
-  | Rem
-  | Neg
-  | Swap
-  | Pop
-  | Quit
-  | True
-  | False
+  | And
+  | Or
   | Not
-  | Equal
   | Lt
   | Gt
 
-and value =
-  | Int of int
-  | Bool of bool
+type coms = com list
 
-let rec parse_prog (tokens: string list) : command list option =
-  let p = many' parse_command in
-  match string_parse p (string_concat_list tokens) with
-  | Some (cmds, _) -> Some cmds
-  | None -> None
+type config = {
+  stack: const list;
+  trace: string list;
+  program: coms;
+}
 
-and parse_command () : command parser =
-  (keyword "push" >> whitespaces1 >> natural >|= fun n -> Push n)
-  <|> (keyword "add" >| Add)
-  <|> (keyword "sub" >| Sub)
-  <|> (keyword "mul" >| Mul)
-  <|> (keyword "div" >| Div)
-  <|> (keyword "rem" >| Rem)
-  <|> (keyword "neg" >| Neg)
-  <|> (keyword "swap" >| Swap)
-  <|> (keyword "pop" >| Pop)
-  <|> (keyword "quit" >| Quit)
-  <|> (keyword "true" >| True)
-  <|> (keyword "false" >| False)
-  <|> (keyword "not" >| Not)
-  <|> (keyword "equal" >| Equal)
-  <|> (keyword "lt" >| Lt)
-  <|> (keyword "gt" >| Gt)
+let initial_config program = { stack = []; trace = []; program }
 
-let initial_config (commands: command list) : config =
-  { stack = []; trace = []; program = commands }
-
-let interp_step (config: config) : config option =
-  match config.program, config.stack with
-  | [], _ -> Some { config with trace = "Success" :: config.trace; stack = []; program = [] }
-  | Quit :: _, _ -> Some { config with trace = "Success" :: config.trace; stack = []; program = [] }
-  | Push n :: rest, _ -> interp_step { config with stack = Int n :: config.stack; program = rest }
-  | Pop :: rest, Int _ :: stack' -> interp_step { config with stack = stack'; program = rest }
-  | Pop :: _, _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] }
-  | Add :: rest, Int y :: Int x :: stack' -> interp_step { config with stack = Int (x + y) :: stack'; program = rest }
-  | Add :: _, Int _ :: _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] }
-  | Add :: _, _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] }
-
-  | _ :: _, [] -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] }
-  | _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] }
-
+let rec interp_step (config: config) : config option =
+  match config.program with
+  | [] -> Some config
+  | command :: rest ->
+    match command with
+    | Push c -> interp_step { config with stack = c :: config.stack; program = rest }
+    | Pop ->
+      (match config.stack with
+       | [] -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* PopError *)
+       | _ :: stack' -> interp_step { config with stack = stack'; program = rest })
+    | Trace ->
+      (match config.stack with
+       | [] -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* TraceError *)
+       | c :: stack' ->
+         let trace_entry = toString c in
+         interp_step { config with stack = Unit :: stack'; trace = trace_entry :: config.trace; program = rest })
+    | Add ->
+      (match config.stack with
+       | Int i :: Int j :: stack' -> interp_step { config with stack = Int (i + j) :: stack'; program = rest }
+       | Int _ :: _ :: _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* AddError1 *)
+       | _ :: _ :: _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* AddError1 *)
+       | _ :: stack' -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* AddError2 *)
+       | _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* AddError3 *)
+      )
+    | Sub ->
+      (match config.stack with
+       | Int i :: Int j :: stack' -> interp_step { config with stack = Int (i - j) :: stack'; program = rest }
+       | Int _ :: _ :: _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* SubError1 *)
+       | _ :: _ :: _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* SubError1 *)
+       | _ :: stack' -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* SubError2 *)
+       | _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* SubError3 *)
+      )
+    | Mul ->
+      (match config.stack with
+       | Int i :: Int j :: stack' -> interp_step { config with stack = Int (i * j) :: stack'; program = rest }
+       | Int _ :: _ :: _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* MulError1 *)
+       | _ :: _ :: _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* MulError1 *)
+       | _ :: stack' -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* MulError2 *)
+       | _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* MulError3 *)
+      )
+    | Div ->
+      (match config.stack with
+       | Int i :: Int j :: stack' ->
+         if j = 0 then Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* DivError0 *)
+         else interp_step { config with stack = Int (i / j) :: stack'; program = rest }
+       | Int _ :: _ :: _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* DivError1 *)
+       | _ :: _ :: _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* DivError1 *)
+       | _ :: stack' -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* DivError2 *)
+       | _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* DivError3 *)
+      )
+    | And ->
+      (match config.stack with
+       | Bool a :: Bool b :: stack' -> interp_step { config with stack = Bool (a && b) :: stack'; program = rest }
+       | Bool _ :: _ :: _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* AndError1 *)
+       | _ :: _ :: _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* AndError1 *)
+       | _ :: stack' -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* AndError2 *)
+       | _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* AndError3 *)
+      )
+    | Or ->
+      (match config.stack with
+       | Bool a :: Bool b :: stack' -> interp_step { config with stack = Bool (a || b) :: stack'; program = rest }
+       | Bool _ :: _ :: _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* OrError1 *)
+       | _ :: _ :: _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* OrError1 *)
+       | _ :: stack' -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* OrError2 *)
+       | _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* OrError3 *)
+      )
+    | Not ->
+      (match config.stack with
+       | Bool a :: stack' -> interp_step { config with stack = Bool (not a) :: stack'; program = rest }
+       | Bool _ :: _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* NotError1 *)
+       | _ :: stack' -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* NotError2 *)
+       | _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* NotError3 *)
+      )
+    | Lt ->
+      (match config.stack with
+       | Int x :: Int y :: stack' -> interp_step { config with stack = Bool (y < x) :: stack'; program = rest }
+       | Int _ :: _ :: _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* LtError1 *)
+       | _ :: _ :: _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* LtError1 *)
+       | _ :: stack' -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* LtError2 *)
+       | _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* LtError3 *)
+      )
+    | Gt ->
+      (match config.stack with
+       | Int x :: Int y :: stack' -> interp_step { config with stack = Bool (y > x) :: stack'; program = rest }
+       | Int _ :: _ :: _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* GtError1 *)
+       | _ :: _ :: _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* GtError1 *)
+       | _ :: stack' -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* GtError2 *)
+       | _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* GtError3 *)
+      )
 
 let interp (s : string) : string list option = 
    let tokens = String.split_on_char ' ' program in
