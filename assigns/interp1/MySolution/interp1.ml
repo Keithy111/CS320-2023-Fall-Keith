@@ -1,5 +1,4 @@
-#use "./../../../../classlib/OCaml/MyOCaml.ml";;
-
+#use "./../../../classlib/OCaml/MyOCaml.ml";;
 
 (*
 
@@ -131,13 +130,14 @@ let rec interp_step (config: config) : config option =
        | _ -> Some { config with trace = "Panic" :: config.trace; stack = []; program = [] } (* GtError3 *)
       )
 
-let interp (s : string) : string list option = 
-   let tokens = String.split_on_char ' ' program in
-   match parse_prog tokens with
-   | Some commands ->
-     let initial_configuration = initial_config commands in
-     (match interp_step initial_configuration with
-      | Some final_configuration ->
-        Some (final_configuration.trace |> foreach_to_listize(string_foreach))
-      | None -> None)
-   | None -> None
+   let interp (s : string) : string list option = 
+      let tokens = String.split_on_char ' ' s in
+      match parse_prog tokens with
+      | Some commands ->
+        let initial_configuration = initial_config commands in
+        (match interp_step initial_configuration with
+        | Some final_configuration ->
+          Some (final_configuration.trace |> foreach_to_listize string_foreach)
+        | None -> None)
+      | None -> None
+    
