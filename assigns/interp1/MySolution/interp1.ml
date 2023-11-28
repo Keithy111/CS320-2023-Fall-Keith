@@ -53,13 +53,14 @@ let rec string_of_char_list char_list =
      | c :: cs -> aux cs (acc ^ str c)
    in aux char_list ""
 
-(*remove the negative sign of a string*)
+(* Remove the negative sign of a string *)
 let rem_negative s =
   let char_list = string_listize s in
   match char_list with
   | '-' :: rest -> (true, string_of_char_list rest) 
   | _ -> (false, s) 
 
+(* Parse a constant from a string *)
 let parse_constant s = 
   match s with
   | "True" -> Some (Bool true)
@@ -98,7 +99,7 @@ let parse_command s =
   | "" -> None
   | _ -> None
 
-(*helper function that breaks down into individual commands based on semicolons*)
+(* Helper function that breaks down into individual commands based on semicolons *)
 let separator (s : string) : string list =
   let rec aux (cs : char list) (current : string) (acc : string list) : string list =
     match cs with
@@ -117,6 +118,7 @@ let separator (s : string) : string list =
   in 
   list_reverse (aux (string_listize s) "" []) 
 
+(* Parse a program into a list of commands *)
 let parse_program s =
   let tokens = separator s in
   let rec parse tokens =
@@ -178,21 +180,25 @@ let parse_program s =
   in
   parse tokens
 
+(* Handle binary operations *)
 let handle_binary_op op stack trace =
   match stack with
   | Int j :: Int i :: rest -> Some ((Int (op i j)) :: rest, trace)
   | _ -> Some ([], "Panic" :: trace)
 
+(* Handle unary operations *)
 let handle_unary_op op stack trace =
   match stack with
   | Bool i :: Bool j :: rest -> Some ((Bool (op i j)) :: rest, trace)
   | _ -> Some ([], "Panic" :: trace)
 
+(* Handle comparison operations *)
 let handle_comparison_op op stack trace =
   match stack with
   | Int j :: Int i :: rest -> Some ((Bool (op i j)) :: rest, trace)
   | _ -> Some ([], "Panic" :: trace)
 
+(* Evaluate a command *)
 let eval_command cmd (stack, trace) =
   match cmd with
   | Push c -> Some (c :: stack, trace)
@@ -222,11 +228,13 @@ let eval_command cmd (stack, trace) =
   | Lt -> handle_comparison_op (<) stack trace
   | Gt -> handle_comparison_op (>) stack trace
 
+(* Check if "Panic" is present in the trace *)
 let rec contains_panic trace = 
   match trace with
   | [] -> false
   | x :: xs -> if x = "Panic" then true else contains_panic xs
 
+(* Evaluate a list of commands *)
 let rec eval_commands cmds state =
   match cmds with
   | [] -> Some state
@@ -239,6 +247,7 @@ let rec eval_commands cmds state =
             eval_commands rest (new_stack, new_trace)
       | None -> None
 
+(* Interpret a given string, returning the trace *)
 let interp (s : string) : string list option =
   match parse_program s with
   | None -> None 
