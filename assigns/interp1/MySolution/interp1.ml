@@ -182,26 +182,55 @@ let notOperator(stack : const list)(output : string list) : const list * string 
     | _ :: rest -> ([], "Panic" :: output)
     | [] -> ([], "Panic" :: output)
 
-(* Main function to interpret the input string *)
+let parse_value (s : string) : const option =
+  try Some (Int (int_of_string s))
+  with Failure _ -> (
+    match s with
+    | "True" -> Some (Bool true)
+    | "False" -> Some (Bool false)
+    | "Unit" -> Some Unit  
+    | _ -> None
+  )
+let parse_command (s : string) : coms option =
+  match String.split_on_char ' ' s with
+  | ["Push"; value_str] -> (
+      match parse_value value_str with
+      | Some value -> Some (Push value)
+      | None -> None
+    )
+  | ["Pop"; ""] -> Some Pop
+  | ["Trace"; ""] -> Some Trace
+  | ["Add"; ""] -> Some Add
+  | ["Sub"; ""] -> Some Sub
+  | ["Mul"; ""] -> Some Mul
+  | ["Div"; ""] -> Some Div
+  | ["And"; ""] -> Some And
+  | ["Or"; ""] -> Some Or
+  | ["Not"; ""] -> Some Not
+  | ["Lt"; ""] -> Some Lt
+  | ["Gt"; ""] -> Some Gt
+  | _ -> None
+
 let interp (s: string) : string list option =
-  let empty : coms list = [] in
-  let stack : const list = [] in
-  let output : string list = [] in
-  let new_pro = list_reverse (toProgram (string_listize s) empty) in
-  let rec helper (curr : coms list) (stack_output : const list * string list) : string list option =
-    if (extract_stack stack_output) = [] && (extractOutput stack_output) = ["Panic"] then
-      Some (extractOutput stack_output)
-    else
-      match curr with
-      | command :: rest ->
-        (begin
-          match command with
-          | Push constant -> helper rest (push constant (extract_stack stack_output), extractOutput stack_output)
-          | Pop -> helper rest (pop (extract_stack stack_output) (extractOutput stack_output))
-          | Trace -> helper rest (trace (extract_stack stack_output) (extractOutput stack_output))
-          | Add | Sub | Mul | Div | Lt | Gt -> helper rest (numOperator (extract_stack stack_output) curr (extractOutput stack_output))
-          | And | Or -> helper rest (boolOperator (extract_stack stack_output) curr (extractOutput stack_output))
-          | Not -> helper rest (notOperator (extract_stack stack_output) (extractOutput stack_output))
-        end)
-      | [] -> Some (extractOutput stack_output)
-  in helper new_pro (stack, output)
+  let program_tokens = List.map String.trim (String.split_on_char ';' s) in
+  match parse_program program_tokens [] with
+  | Some program ->
+      let empty_stack = [] in
+      let output = [] in
+      let rec helper (curr : coms list) (stack_output : const list * string list) : string list option =
+        if extract_stack stack_output = [] && extractOutput stack_output = ["Panic"] then
+          Some (extractOutput stack_output)
+        else
+          match curr with
+          | command :: rest ->
+            (match command with
+            | Push constant -> helper rest (push constant (extract_stack stack_output), extractOutput stack_output)
+            | Pop -> helper rest (pop (extract_stack stack_output) (extractOutput stack_output))
+            | Trace -> helper rest (trace (extract_stack stack_output) (extractOutput stack_output))
+            | Add | Sub | Mul | Div | Lt | Gt -> helper rest (numOperator (extract_stack stack_output) [command] (extractOutput stack_output))
+            | And | Or -> helper rest (boolOperator (extract_stack stack_output) [command] (extractOutput stack_output))
+            | Not -> helper rest (notOperator (extract_stack stack_output) (extractOutput stack_output))
+            )
+          | [] -> Some (extractOutput stack_output)
+      in helper program (empty_stack, output)
+  | None -> None
