@@ -12,247 +12,178 @@ Notes:
 
 *)
 
+(* abstract syntax tree of interp1 *)
 type const =
   | Int of int
   | Bool of bool
-  | Unit 
+  | Unit
 
-type coms =
-  | Push of const
-  | Pop
-  | Trace
-  | Add
-  | Sub
-  | Mul
-  | Div
-  | And
-  | Or
-  | Not
-  | Lt
-  | Gt
+type com =
+  | Push of const | Pop | Trace
+  | Add | Sub | Mul | Div
+  | And | Or | Not
+  | Lt | Gt
 
-(* Convert a constant to a string representation *)
-let constant_to_string = function
-| Int i -> string_of_int i
-| Bool b -> if b then "True" else "False"
-| Unit -> "Unit"
+type coms = com list
 
-let is_int = function
-  | Int _ -> true
-  | _ -> false
+(* ------------------------------------------------------------ *)
 
-let is_bool = function
-  | Bool _ -> true
-  | _ -> false
+(* parsers for interp1 *)
+let parse_nat = 
+  let* n = natural << whitespaces in pure n
 
-(* Helper function to convert a list of characters back into a string *)
-let rec string_of_char_list char_list =
-   let rec aux chars acc =
-     match chars with
-     | [] -> acc
-     | c :: cs -> aux cs (acc ^ str c)
-   in aux char_list ""
+let parse_int =
+  (let* n = parse_nat in pure (Int n)) <|>
+  (keyword "-" >> let* n = parse_nat in pure (Int (-n)))
 
-(* Remove the negative sign of a string *)
-let rem_negative s =
-  let char_list = string_listize s in
-  match char_list with
-  | '-' :: rest -> (true, string_of_char_list rest) 
-  | _ -> (false, s) 
+let parse_bool =
+  (keyword "True" >> pure (Bool true)) <|>
+  (keyword "False" >> pure (Bool false))
 
-(* Parse a constant from a string *)
-let parse_constant s = 
-  match s with
-  | "True" -> Some (Bool true)
-  | "False" -> Some (Bool false)
-  | "Unit" -> Some Unit
-  | _ ->
-      let (is_negative, digits) = rem_negative s in
-      let rec parse_digits chars total =
-        match chars with
-        | [] -> Some total
-        | c :: cs -> 
-            if char_isdigit c then
-              let digit = digit_of_char c in
-              parse_digits cs (10 * total + digit)
-            else
-              None
-      in
-      match parse_digits (string_listize digits) 0 with
-      | Some n -> Some (Int (if is_negative then -n else n))
-      | None -> None
+let parse_unit =
+  keyword "Unit" >> pure Unit
 
-(* Function to parse a string into a command option *)
-let parse_command s =
-  match s with
-  | "Pop" -> Some Pop
-  | "Trace" -> Some Trace
-  | "Add" -> Some Add
-  | "Sub" -> Some Sub
-  | "Mul" -> Some Mul
-  | "Div" -> Some Div
-  | "And" -> Some And
-  | "Or" -> Some Or
-  | "Not" -> Some Not
-  | "Lt" -> Some Lt
-  | "Gt" -> Some Gt
-  | "" -> None
+let parse_const =
+  parse_int <|>
+  parse_bool <|>
+  parse_unit
+
+let parse_com = 
+  (keyword "Push" >> parse_const >>= fun c -> pure (Push c)) <|>
+  (keyword "Pop" >> pure Pop) <|>
+  (keyword "Trace" >> pure Trace) <|>
+  (keyword "Add" >> pure Add) <|>
+  (keyword "Sub" >> pure Sub) <|>
+  (keyword "Mul" >> pure Mul) <|>
+  (keyword "Div" >> pure Div) <|>
+  (keyword "And" >> pure And) <|>
+  (keyword "Or" >> pure Or) <|>
+  (keyword "Not" >> pure Not) <|>
+  (keyword "Lt" >> pure Lt) <|>
+  (keyword "Gt" >> pure Gt)
+
+let parse_coms = many (parse_com << keyword ";")
+
+(* ------------------------------------------------------------ *)
+
+(* interpreter *)
+
+type stack = const list
+type trace = string list
+type prog = coms
+
+let rec str_of_nat (n : int) : string =
+  let d = n mod 10 in 
+  let n0 = n / 10 in
+  let s = str (chr (d + ord '0')) in 
+  if 0 < n0 then
+    string_append (str_of_nat n0) s
+  else s
+
+let str_of_int (n : int) : string = 
+  if n < 0 then
+    string_append "-" (str_of_nat (-n))
+  else str_of_nat n
+
+let toString (c : const) : string =
+  match c with
+  | Int i -> str_of_int i
+  | Bool true -> "True"
+  | Bool false -> "False"
+  | Unit -> "Unit"
+
+let rec eval (s : stack) (t : trace) (p : prog) : trace =
+  match p with
+  (* termination state returns the trace *)
+  | [] -> t
+  | Push c :: p0 (* PushStack *) -> eval (c :: s) t p0
+  | Pop :: p0 ->
+    (match s with
+     | _ :: s0 (* PopStack *) -> eval s0 t p0
+     | []      (* PopError *) -> eval [] ("Panic" :: t) [])
+  | Trace :: p0 ->
+    (match s with
+     | c :: s0 (* TraceStack *) -> eval (Unit :: s0) (toString c :: t) p0
+     | []      (* TraceError *) -> eval [] ("Panic" :: t) [])
+  | Add :: p0 ->
+    (match s with
+     | Int i :: Int j :: s0 (* AddStack *)  -> eval (Int (i + j) :: s0) t p0
+     | _ :: _ :: s0         (* AddError1 *) -> eval [] ("Panic" :: t) []
+     | []                   (* AddError2 *) -> eval [] ("Panic" :: t) []
+     | _ :: []              (* AddError3 *) -> eval [] ("Panic" :: t) [])
+  | Sub :: p0 ->
+    (match s with
+     | Int i :: Int j :: s0 (* SubStack *)  -> eval (Int (i - j) :: s0) t p0
+     | _ :: _ :: s0         (* SubError1 *) -> eval [] ("Panic" :: t) []
+     | []                   (* SubError2 *) -> eval [] ("Panic" :: t) []
+     | _ :: []              (* SubError3 *) -> eval [] ("Panic" :: t) [])
+  | Mul :: p0 ->
+    (match s with
+     | Int i :: Int j :: s0 (* MulStack *)  -> eval (Int (i * j) :: s0) t p0
+     | _ :: _ :: s0         (* MulError1 *) -> eval [] ("Panic" :: t) []
+     | []                   (* MulError2 *) -> eval [] ("Panic" :: t) []
+     | _ :: []              (* MulError3 *) -> eval [] ("Panic" :: t) [])
+  | Div :: p0 ->
+    (match s with
+     | Int i :: Int 0 :: s0 (* DivError0 *) -> eval [] ("Panic" :: t) []
+     | Int i :: Int j :: s0 (* DivStack *)  -> eval (Int (i / j) :: s0) t p0
+     | _ :: _ :: s0         (* DivError1 *) -> eval [] ("Panic" :: t) []
+     | []                   (* DivError2 *) -> eval [] ("Panic" :: t) []
+     | _ :: []              (* DivError3 *) -> eval [] ("Panic" :: t) [])
+  | And :: p0 ->
+    (match s with
+     | Bool a :: Bool b :: s0 (* AndStack *)  -> eval (Bool (a && b) :: s0) t p0
+     | _ :: _ :: s0           (* AndError1 *) -> eval [] ("Panic" :: t) []
+     | []                     (* AndError2 *) -> eval [] ("Panic" :: t) []
+     | _ :: []                (* AndError3 *) -> eval [] ("Panic" :: t) [])
+  | Or :: p0 ->
+    (match s with
+     | Bool a :: Bool b :: s0 (* OrStack *)  -> eval (Bool (a || b) :: s0) t p0
+     | _ :: _ :: s0           (* OrError1 *) -> eval [] ("Panic" :: t) []
+     | []                     (* OrError2 *) -> eval [] ("Panic" :: t) []
+     | _ :: []                (* OrError3 *) -> eval [] ("Panic" :: t) [])
+  | Not :: p0 ->
+    (match s with
+     | Bool a :: s0 (* NotStack  *) -> eval (Bool (not a) :: s0) t p0
+     | _ :: s0      (* NotError1 *) -> eval [] ("Panic" :: t) []
+     | []           (* NotError2 *) -> eval [] ("Panic" :: t) [])
+  | Lt :: p0 ->
+    (match s with
+     | Int i :: Int j :: s0 (* LtStack *)  -> eval (Bool (i < j) :: s0) t p0
+     | _ :: _ :: s0         (* LtError1 *) -> eval [] ("Panic" :: t) []
+     | []                   (* LtError2 *) -> eval [] ("Panic" :: t) []
+     | _ :: []              (* LtError3 *) -> eval [] ("Panic" :: t) [])
+  | Gt :: p0 ->
+    (match s with
+     | Int i :: Int j :: s0 (* GtStack *)  -> eval (Bool (i > j) :: s0) t p0
+     | _ :: _ :: s0         (* GtError1 *) -> eval [] ("Panic" :: t) []
+     | []                   (* GtError2 *) -> eval [] ("Panic" :: t) []
+     | _ :: []              (* GtError3 *) -> eval [] ("Panic" :: t) [])
+
+(* ------------------------------------------------------------ *)
+
+(* putting it all together [input -> parser -> eval -> output] *)
+
+let interp (s : string) : string list option =
+  match string_parse (whitespaces >> parse_coms) s with
+  | Some (p, []) -> Some (eval [] [] p)
   | _ -> None
 
-(* Helper function that breaks down into individual commands based on semicolons *)
-let separator (s : string) : string list =
-  let rec aux (cs : char list) (current : string) (acc : string list) : string list =
-    match cs with
-    | [] -> 
-        if current = "" then acc else current :: acc 
-    | ';' :: rest -> 
-        aux rest "" (current :: acc) 
-    | c :: rest ->
-        if char_iswhitespace c then
-          if current = "" then
-            aux rest current acc 
-          else
-            aux rest "" (current :: acc)
-        else
-          aux rest (current ^ str c) acc 
-  in 
-  list_reverse (aux (string_listize s) "" []) 
+(* ------------------------------------------------------------ *)
 
-(* Parse a program into a list of commands *)
-let parse_program s =
-  let tokens = separator s in
-  let rec parse tokens =
-    match tokens with
-    | [] -> Some []
-    | "" :: rest -> parse rest
-    | "Push" :: value :: rest -> 
-        (match parse_constant value with
-        | Some const -> (match parse rest with
-                         | Some cmds -> Some (Push const :: cmds)
-                         | None -> None)
-        | None -> None)
-    | "Push" :: [] -> None
-    | "Pop" :: rest -> 
-        (match parse rest with
-        | Some cmds -> Some (Pop :: cmds)
-        | None -> None)
-    | "Trace" :: rest -> 
-        (match parse rest with
-        | Some cmds -> Some (Trace :: cmds)
-        | None -> None)
-    | "Add" :: rest ->
-         (match parse rest with
-         | Some cmds -> Some (Add :: cmds)
-         | None -> None)
-    | "Sub" :: rest ->
-         (match parse rest with
-         | Some cmds -> Some (Sub :: cmds)
-         | None -> None)
-    | "Mul" :: rest ->
-         (match parse rest with
-         | Some cmds -> Some (Mul :: cmds)
-         | None -> None)
-    | "Div" :: rest ->
-         (match parse rest with
-         | Some cmds -> Some (Div :: cmds)
-         | None -> None)
-    | "And" :: rest ->
-         (match parse rest with
-         | Some cmds -> Some (And :: cmds)
-         | None -> None)
-    | "Or" :: rest ->
-         (match parse rest with
-         | Some cmds -> Some (Or :: cmds)
-         | None -> None)
-    | "Not" :: rest ->
-         (match parse rest with
-         | Some cmds -> Some (Not :: cmds)
-         | None -> None)
-    | "Lt" :: rest ->
-         (match parse rest with
-         | Some cmds -> Some (Lt :: cmds)
-         | None -> None)
-    | "Gt" :: rest ->
-         (match parse rest with
-         | Some cmds -> Some (Gt :: cmds)
-         | None -> None)
-    | _ -> None
+(* interp from file *)
+
+let read_file (fname : string) : string =
+  let fp = open_in fname in
+  let s = string_make_fwork (fun work ->
+      try
+        while true do
+          work (input_char fp)
+        done
+      with _ -> ())
   in
-  parse tokens
+  close_in fp; s
 
-(* Handle binary operations *)
-let handle_binary_op op stack trace =
-  match stack with
-  | Int j :: Int i :: rest -> Some ((Int (op i j)) :: rest, trace)
-  | _ -> Some ([], "Panic" :: trace)
-
-(* Handle unary operations *)
-let handle_unary_op op stack trace =
-  match stack with
-  | Bool i :: Bool j :: rest -> Some ((Bool (op i j)) :: rest, trace)
-  | _ -> Some ([], "Panic" :: trace)
-
-(* Handle comparison operations *)
-let handle_comparison_op op stack trace =
-  match stack with
-  | Int j :: Int i :: rest -> Some ((Bool (op i j)) :: rest, trace)
-  | _ -> Some ([], "Panic" :: trace)
-
-(* Evaluate a command *)
-let eval_command cmd (stack, trace) =
-  match cmd with
-  | Push c -> Some (c :: stack, trace)
-  | Pop ->
-    (match stack with
-    | [] -> Some ([], "Panic" :: trace)
-    | _ :: rest -> Some (rest, trace))
-  | Trace ->
-    (match stack with
-    | [] -> Some ([Unit], "Panic" :: trace)
-    | c :: rest -> Some (Unit :: rest, (constant_to_string c) :: trace))
-  | Add -> handle_binary_op (+) stack trace
-  | Sub -> handle_binary_op (-) stack trace
-  | Mul -> handle_binary_op ( * ) stack trace
-  | Div ->
-    (match stack with
-    | Int j :: Int i :: rest ->
-      if j = 0 then Some ([], "Panic" :: trace)
-      else Some ((Int (i / j)) :: rest, trace)
-    | _ -> Some ([], "Panic" :: trace))
-  | And -> handle_unary_op (&&) stack trace
-  | Or -> handle_unary_op (||) stack trace
-  | Not ->
-    (match stack with
-    | Bool i :: rest -> Some ((Bool (not i)) :: rest, trace)
-    | _ -> Some ([], "Panic" :: trace))
-  | Lt -> handle_comparison_op (<) stack trace
-  | Gt -> handle_comparison_op (>) stack trace
-
-(* Check if "Panic" is present in the trace *)
-let rec contains_panic trace = 
-  match trace with
-  | [] -> false
-  | x :: xs -> if x = "Panic" then true else contains_panic xs
-
-(* Evaluate a list of commands *)
-let rec eval_commands cmds state =
-  match cmds with
-  | [] -> Some state
-  | cmd :: rest ->
-      match eval_command cmd state with
-      | Some (new_stack, new_trace) -> 
-          if contains_panic new_trace then
-            Some (new_stack, new_trace)
-          else
-            eval_commands rest (new_stack, new_trace)
-      | None -> None
-
-(* Interpret a given string, returning the trace *)
-let interp (s : string) : string list option =
-  match parse_program s with
-  | None -> None 
-  | Some cmds -> 
-      let initial_state = ([], []) in
-      match eval_commands cmds initial_state with
-      | Some (_, trace) -> Some (list_reverse trace) 
-      | None -> Some ["Panic"]
+let interp_file (fname : string) : string list option =
+  let src = read_file fname in
+  interp src
