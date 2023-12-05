@@ -138,6 +138,13 @@ let str_of_int (n : int) : string =
    | Unit -> "Unit"
    | Sym s -> s
 
+and loopThrough (sym: string) (env: (string * value) list) : value option =
+   match env with
+   | [] -> None
+   | (s, v) :: rest ->
+       if s = sym then Some v
+       else loopThrough sym rest
+
 let rec eval (stack : value list) (trace : string list) (env : (string * value) list) (prog : coms) : string list =
    match prog with
    | [] -> trace  (* termination returns trace *)
@@ -228,11 +235,12 @@ let rec eval (stack : value list) (trace : string list) (env : (string * value) 
    | Lookup :: p0 -> (
       match stack with
       | Const (Sym x) :: s0 -> (
-          match lookFor x env with  (* use helper lookFor to seach through env *)
+          match loopThrough x env with  
           | Some v (* LookupStack *)  -> eval (v :: s0) trace env p0
           | None   (* LookupError3 *) -> "Panic" :: trace)  
       | _ :: s0    (* LookupError1 *) -> "Panic" :: trace
       | []         (* LookupError2 *) -> "Panic" :: trace)
+
    (* Function, Call, Return *)
    | Fun cmds :: p0 -> (
       match stack with
