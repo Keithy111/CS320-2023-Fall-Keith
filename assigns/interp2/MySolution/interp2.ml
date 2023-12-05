@@ -251,10 +251,10 @@ let rec eval (s : stack) (t : trace) (v: env) (p : prog) : trace =
     (match s with
      | Const (Symbol sym) :: s0 -> 
        (match assoc_opt sym v with
-        | Some v -> eval (Const v :: s0) t v p0
+        | Some x -> eval (Const x :: s0) t v p0
         | None      (* LookupError3 *) -> eval [] ("Panic" :: t) v p0)
      | _ :: s0      (* LookupError1 *) -> eval [] ("Panic" :: t) v p0
-     | []           (* LookupError2 *) -> eval [] ("Panic" :: t)  p0)
+     | []           (* LookupError2 *) -> eval [] ("Panic" :: t) v p0)
   | Fun (name, body) :: p0 ->
     (match s with
      | Const (Symbol sym) :: Const x :: s0 ->
