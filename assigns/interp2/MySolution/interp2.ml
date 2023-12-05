@@ -111,7 +111,9 @@ and parse_if_else () =
    let* _ = keyword "End" in
    pure (If (c1, c2))
    
-and parse_coms () = many (parse_com () << keyword ";")
+and parse_coms() = 
+   let* _ = pure () in  
+   many (parse_com ()<< keyword ";")
 
 let rec str_of_nat (n : int) : string =
    let d = n mod 10 in 
