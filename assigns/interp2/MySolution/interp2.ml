@@ -26,9 +26,9 @@ type com =
   | Add | Sub | Mul | Div
   | And | Or | Not
   | Lt | Gt
-  | If of com list * com list  (* If-Else End *)
+  | If of com list * com list                            (* If-Else End *)
   | Bind | Lookup
-  | Fun of com list            (* Function definition *)
+  | Fun of com list            
   | Call | Return
 
 type closure = {
