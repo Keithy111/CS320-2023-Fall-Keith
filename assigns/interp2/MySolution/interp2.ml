@@ -12,6 +12,7 @@ Notes:
 
 *)
 
+(*Definitions*)
 type const =
   | Int of int
   | Bool of bool
@@ -128,6 +129,7 @@ let rec str_of_nat (n : int) : string =
      string_append "-" (str_of_nat (-n))
    else str_of_nat n
 
+(* String conversion functions *)
 let toString (c : const) : string =
    match c with
    | Int i -> string_of_int i
@@ -258,13 +260,15 @@ let rec eval (stack : value list) (trace : string list) (env : (string * value) 
       | []           (* ReturnError2 *) -> "Panic" :: trace 
       | _ :: []      (* ReturnError3 *) -> "Panic" :: trace)
 
+
+(* Helper function to lookup a symbol in the environment *)
 and loopThrough (sym: string) (env: (string * value) list) : value option =
    match env with
    | [] -> None
    | (s, v) :: rest ->
        if s = sym then Some v
        else loopThrough sym rest
-       
+
 (* YOUR CODE *)
 let interp (s : string) : string list option =
    match string_parse (whitespaces >> parse_coms()) s with
