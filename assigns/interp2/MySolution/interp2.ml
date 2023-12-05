@@ -16,36 +16,40 @@ type const =
   | Bool of bool 
   | Unit
   | Symbol of string
-  | Closure of (string * ((string * const) list) * coms)
 
+type closure = {
+  body: coms;
+  env: environment;
+}
+and environment = (string * const) list
 
 and com =
-  | Push of const 
-  | Pop 
-  | Swap 
+  | Push of const
+  | PushClosure of closure
+  | Pop
   | Trace
-  | Add 
-  | Sub 
+  | Swap
+  | Add
+  | Sub
   | Mul 
   | Div
   | And 
   | Or 
   | Not
   | Lt 
-  | Gt 
-  | If of coms * coms
-  | Bind 
-  | Lookup
-  | Fun of coms 
-  | Call 
-  | Return
+  | Gt
+  | IfElse of coms * coms  
+  | Bind                   
+  | Lookup                
+  | Fun of string * coms    
+  | Call                   
+  | Return           
 
 and coms = com list
 type stack = const list
 type trace = string list
 type prog = coms
 type env = (string * const) list
-
 
 let parse_nat = let* n = natural << whitespaces in pure n
  
@@ -168,7 +172,13 @@ let assoc_opt key lst =
     | (k, v) :: tail -> if k = key then Some v else aux tail
   in
   aux lst
-  
+
+type stack_item =
+  | Const of const
+  | Closure of closure
+  | Marker of stack * environment
+and stack = stack_item list
+
 let rec eval (s : stack) (t : trace) (v: env) (p : prog) : trace =
   match p with
   | [] -> t
