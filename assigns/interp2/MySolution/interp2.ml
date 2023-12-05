@@ -13,44 +13,35 @@ Notes:
 *)
 
 type const =
-  | Int of int 
-  | Bool of bool 
+  | Int of int
+  | Bool of bool
   | Unit
-  | Symbol of string
+  | Sym of string
+
+type com =
+  | Push of const
+  | Pop
+  | Swap
+  | Trace
+  | Add | Sub | Mul | Div
+  | And | Or | Not
+  | Lt | Gt
+  | If of com list * com list  (* If-Else End *)
+  | Bind | Lookup
+  | Fun of com list            (* Function definition *)
+  | Call | Return
 
 type closure = {
-  body: coms;
-  env: environment;
+  name: string;
+  env: (string * value) list;
+  body: com list;
 }
-and environment = (string * const) list
 
-and com =
-  | Push of const
-  | PushClosure of closure
-  | Pop
-  | Trace
-  | Swap
-  | Add
-  | Sub
-  | Mul 
-  | Div
-  | And 
-  | Or 
-  | Not
-  | Lt 
-  | Gt
-  | IfElse of coms * coms  
-  | Bind                   
-  | Lookup                
-  | Fun of string * coms    
-  | Call                   
-  | Return           
+and value =
+   | Const of const
+   | Closure of closure
 
-and coms = com list
-type stack = const list
-type trace = string list
-type prog = coms
-type env = (string * const) list
+type coms = com list
 
 let parse_nat = let* n = natural << whitespaces in pure n
  
@@ -110,10 +101,13 @@ let parse_symbol =
    parse_unit <|>
    parse_symbol
 
+(* parsing commands *)
 let rec parse_com () =
+   parse_if_else () <|>
+   (keyword "Push" >> parse_const >>= fun c -> pure (Push c)) <|>
    (keyword "Pop" >> pure Pop) <|>
-   (keyword "Trace" >>= fun () -> pure Trace) <|>
    (keyword "Swap" >> pure Swap) <|>
+   (keyword "Trace" >> pure Trace) <|>
    (keyword "Add" >> pure Add) <|>
    (keyword "Sub" >> pure Sub) <|>
    (keyword "Mul" >> pure Mul) <|>
@@ -123,25 +117,22 @@ let rec parse_com () =
    (keyword "Not" >> pure Not) <|>
    (keyword "Lt" >> pure Lt) <|>
    (keyword "Gt" >> pure Gt) <|>
-   (keyword "If" >> parse_coms () >>= fun c1 -> 
-      keyword "Else" >> parse_coms () >>= fun c2 -> 
-      keyword "End" >> pure (IfElse(c1, c2))) <|>  
    (keyword "Bind" >> pure Bind) <|>
    (keyword "Lookup" >> pure Lookup) <|>
-   (keyword "Fun" >> 
-      parse_symbol >>= (function 
-                        | Symbol sym -> 
-                           keyword "{" >> 
-                           parse_coms () >>= fun body -> 
-                           keyword "}" >> 
-                           pure (Fun(sym, body))
-                        | _ -> fail)) <|>  
+   (keyword "Fun" >> parse_coms () << keyword "End" >>= fun cmds -> pure (Fun cmds)) <|>
    (keyword "Call" >> pure Call) <|>
    (keyword "Return" >> pure Return)
-and parse_coms () =
-   let* _ = pure () in 
-   many (parse_com () << keyword ";")
-    
+
+and parse_if_else () =
+   let* _ = keyword "If" in
+   let* c1 = parse_coms () in
+   let* _ = keyword "Else" in
+   let* c2 = parse_coms () in
+   let* _ = keyword "End" in
+   pure (If (c1, c2))
+   
+and parse_coms () = many (parse_com () << keyword ";")
+
 let rec str_of_nat (n : int) : string =
    let d = n mod 10 in 
    let n0 = n / 10 in
@@ -166,134 +157,128 @@ let toString (c : const) : string =
       let s1 = string_append ("Fun<") (s) in
       string_append (s1) (">")
 
-let assoc_opt key lst =
-  let rec aux lst =
-    match lst with
-    | [] -> None
-    | (k, v) :: tail -> if k = key then Some v else aux tail
-  in
-  aux lst
+let rec eval (stack : value list) (trace : string list) (env : (string * value) list) (prog : coms) : string list =
+   match prog with
+   | [] -> trace  (* termination returns trace *)
+   | Push c :: p0 (* push stack *) -> eval ((Const c) :: stack) trace env p0
+   | Pop :: p0 -> (
+       match stack with
+       | _ :: s0  (* PopStack *) -> eval s0 trace env p0
+       | []       (* PopError *) -> "Panic" :: trace)
+   | Swap :: p0 -> (
+       match stack with
+       | a :: b :: s0 (* SwapStack *) -> eval (b :: a :: s0) trace env p0
+       | _            (* SwapError *) -> "Panic" :: trace)  
+   | Trace :: p0 -> (
+       match stack with
+       | Const c :: s0 (* TraceStack *) -> eval (Const Unit :: s0) (toString c :: trace) env p0
+       | _             (* TraceError *) -> "Panic" :: trace)  
+   (* Add, Sub, Mul, Div *)
+   | Add :: p0 -> (
+      match stack with
+      | Const (Int i) :: Const (Int j) :: s0 (* AddStack *)  -> eval (Const (Int (i + j)) :: s0) trace env p0
+      | _ :: _ :: s0                         (* AddError1 *) -> "Panic" :: trace
+      | []                                   (* AddError2 *) -> "Panic" :: trace
+      | _ :: []                              (* AddError3 *) -> "Panic" :: trace)
+   | Sub :: p0 -> (
+      match stack with
+      | Const (Int i) :: Const (Int j) :: s0 (* SubStack *)  -> eval (Const (Int (i - j)) :: s0) trace env p0
+      | _ :: _ :: s0                         (* SubError1 *) -> "Panic" :: trace
+      | []                                   (* SubError2 *) -> "Panic" :: trace
+      | _ :: []                              (* SubError3 *) -> "Panic" :: trace)
+   | Mul :: p0 -> (
+      match stack with
+      | Const (Int i) :: Const (Int j) :: s0 (* MulStack *)  -> eval (Const (Int (i * j)) :: s0) trace env p0
+      | _ :: _ :: s0                         (* MulError1 *) -> "Panic" :: trace
+      | []                                   (* MulError2 *) -> "Panic" :: trace
+      | _ :: []                              (* MulError3 *) -> "Panic" :: trace)
+   | Div :: p0 -> (
+      match stack with
+      | Const (Int i) :: Const (Int 0) :: s0 (* DivError0 *) -> "Panic" :: trace
+      | Const (Int i) :: Const (Int j) :: s0 (* DivStack *)  -> eval (Const (Int (i / j)) :: s0) trace env p0
+      | _ :: _ :: s0                         (* DivError1 *) -> "Panic" :: trace
+      | []                                   (* DivError2 *) -> "Panic" :: trace
+      | _ :: []                              (* DivError3 *) -> "Panic" :: trace)
+   (* And, Or, Not *)
+   | And :: p0 -> (
+      match stack with
+      | Const (Bool a) :: Const (Bool b) :: s0 (* AndStack *)  -> eval (Const (Bool (a && b)) :: s0) trace env p0
+      | _ :: _ :: s0                           (* AndError1 *) -> "Panic" :: trace
+      | []                                     (* AndError2 *) -> "Panic" :: trace
+      | _ :: []                                (* AndError3 *) -> "Panic" :: trace)
+   | Or :: p0 -> (
+      match stack with
+      | Const (Bool a) :: Const (Bool b) :: s0 (* OrStack *)  -> eval (Const (Bool (a || b)) :: s0) trace env p0
+      | _ :: _ :: s0                           (* OrError1 *) -> "Panic" :: trace
+      | []                                     (* OrError2 *) -> "Panic" :: trace
+      | _ :: []                                (* OrError3 *) -> "Panic" :: trace)
+   | Not :: p0 -> (
+      match stack with
+      | Const (Bool a) :: s0 (* NotStack *)  -> eval (Const (Bool (not a)) :: s0) trace env p0
+      | _ :: s0              (* NotError1 *) -> "Panic" :: trace
+      | []                   (* NotError2 *) -> "Panic" :: trace)
+   (* Lt, Gt *)
+   | Lt :: p0 -> (
+      match stack with
+      | Const (Int i) :: Const (Int j) :: s0 (* LtStack *)  -> eval (Const (Bool (i < j)) :: s0) trace env p0
+      | _ :: _ :: s0                         (* LtError1 *) -> "Panic" :: trace
+      | []                                   (* LtError2 *) -> "Panic" :: trace
+      | _ :: []                              (* LtError3 *) -> "Panic" :: trace)
+   | Gt :: p0 -> (
+      match stack with
+      | Const (Int i) :: Const (Int j) :: s0 (* GtStack *)  -> eval (Const (Bool (i > j)) :: s0) trace env p0
+      | _ :: _ :: s0                         (* GtError1 *) -> "Panic" :: trace
+      | []                                   (* GtError2 *) -> "Panic" :: trace
+      | _ :: []                              (* GtError3 *) -> "Panic" :: trace)
+   (* If then Else *)
+   | If (c1, c2) :: p0 -> (
+      match stack with
+      | Const (Bool true) :: s0  (* IfStack *)      -> eval s0 trace env (c1 @ p0)
+      | Const (Bool false) :: s0 (* ElseStack *)    -> eval s0 trace env (c2 @ p0)
+      | _ :: s0                  (* IfElseError1 *) -> "Panic" :: trace
+      | []                       (* IfElseError2 *) -> "Panic" :: trace)
+   (* Bind, Lookup *)
+   | Bind :: p0 -> (
+      match stack with
+      | Const (Sym x) :: v :: s0 (* BindStack *)  -> eval s0 trace ((x, v) :: env) p0
+      | _ :: _ :: s0             (* BindError1 *) -> "Panic" :: trace 
+      | []                       (* BindError2 *) -> "Panic" :: trace
+      | _ :: []                  (* BindError3 *) -> "Panic" :: trace)
+   | Lookup :: p0 -> (
+      match stack with
+      | Const (Sym x) :: s0 -> (
+          match lookFor x env with  (* use helper lookFor to seach through env *)
+          | Some v (* LookupStack *)  -> eval (v :: s0) trace env p0
+          | None   (* LookupError3 *) -> "Panic" :: trace)  
+      | _ :: s0    (* LookupError1 *) -> "Panic" :: trace
+      | []         (* LookupError2 *) -> "Panic" :: trace)
+   (* Function, Call, Return *)
+   | Fun cmds :: p0 -> (
+      match stack with
+      | Const (Sym f) :: s0 -> (* FunStack *)
+        let closure = { name = f; env = env; body = cmds } in
+        eval (Closure closure :: s0) trace env p0
+      | _ :: s0 (* FunError1 *) -> "Panic" :: trace 
+      | []      (* FunError2 *) -> "Panic" :: trace)
 
-type stack_item =
-  | Const of const
-  | Closure of closure
-  | Marker of stack * environment
-and stack = stack_item list
+   | Call :: p0 -> (
+      match stack with
+      | Closure { name = f; env = closure_env; body = body_cmds } :: arg :: s0 -> (* CallStack *)
+         let new_env: (string * value) list = (f, Closure { name = f; env = closure_env; body = body_cmds }) :: closure_env in
+         eval (arg :: Closure { name = "cc"; env = env; body = p0 } :: s0) trace new_env body_cmds
+      | _ :: _ :: s0 (* CallError1 *) -> "Panic" :: trace 
+      | []           (* CallError2 *) -> "Panic" :: trace 
+      | _ :: []      (* CallError3 *) -> "Panic" :: trace)
 
-let rec eval (s : stack) (t : trace) (v: env) (p : prog) : trace =
-  match p with
-  | [] -> t
-  | Push c :: p0 -> eval (c :: s) t v p0
-  | PushClosure closure :: p0 -> eval (Closure closure :: s) t v p0
-  | Pop :: p0 ->
-    (match s with
-     | _ :: s0 -> eval s0 t v p0
-     | [] -> eval [] ("Panic" :: t) v p0)  (* Handle empty stack *)
-  | Trace :: p0 ->
-    (match s with
-     | c :: s0 -> let str_c = 
-                    (match c with
-                     | Const const_val -> toString const_val
-                     | Closure _ -> "[closure]"
-                     | Marker (_, _) -> "[marker]")  (* Added Marker case *)
-                  in eval (Const Unit :: s0) (str_c :: t) v p0
-     | [] -> eval [] ("Panic" :: t) v p0)
-  | Swap :: p0 ->
-    (match s with
-     | x1 :: x2 :: s0 -> eval (x2 :: x1 :: s0) t v p0
-     | _ -> eval [] ("Panic" :: t) v p0)
-  | Add :: p0 ->
-    (match s with
-     | Const (Int i) :: Const (Int j) :: s0 -> eval (Const (Int (i + j)) :: s0) t v p0
-     | _ :: _ :: s0 (* AddError1 *) -> eval [] ("Panic" :: t) v p0
-     | []                   (* AddError2 *) -> eval [] ("Panic" :: t) v p0
-     | _ :: []              (* AddError3 *) -> eval [] ("Panic" :: t) v p0)
-  | Sub :: p0 ->
-    (match s with
-     | Const (Int i) :: Const (Int j) :: s0 (* SubStack *)  -> eval (Const (Int (i - j)) :: s0) t v p0
-     | _ :: _ :: s0         (* SubError1 *) -> eval [] ("Panic" :: t) v p0
-     | []                   (* SubError2 *) -> eval [] ("Panic" :: t) v p0
-     | _ :: []              (* SubError3 *) -> eval [] ("Panic" :: t) v p0)
-  | Mul :: p0 ->
-    (match s with
-     | Const (Int i) :: Const (Int j) :: s0 (* MulStack *)  -> eval (Const (Int (i * j)) :: s0) t v p0
-     | _ :: _ :: s0         (* MulError1 *) -> eval [] ("Panic" :: t) v p0
-     | []                   (* MulError2 *) -> eval [] ("Panic" :: t) v p0
-     | _ :: []              (* MulError3 *) -> eval [] ("Panic" :: t) v p0)
-  | Div :: p0 ->
-    (match s with
-     | Const (Int i) :: Const (Int 0) :: s0 (* DivError0 *) -> eval [] ("Panic" :: t) v p0
-     | Const (Int i) :: Const (Int j) :: s0 (* DivStack *)  -> eval ((Const (Int (i / j))) :: s0) t v p0
-     | _ :: _ :: s0         (* DivError1 *) -> eval [] ("Panic" :: t) v p0
-     | []                   (* DivError2 *) -> eval [] ("Panic" :: t) v p0
-     | _ :: []              (* DivError3 *) -> eval [] ("Panic" :: t) v p0)
-  | And :: p0 ->
-    (match s with
-     | Const (Bool a) :: Const (Bool b) :: s0 -> eval (Const (Bool (a && b)) :: s0) t v p0
-     | _ :: _ :: s0           (* AndError1 *) -> eval [] ("Panic" :: t) v p0
-     | []                     (* AndError2 *) -> eval [] ("Panic" :: t) v p0
-     | _ :: []                (* AndError3 *) -> eval [] ("Panic" :: t) v p0)
-  | Or :: p0 ->
-    (match s with
-     | Const (Bool a) :: Const (Bool b) :: s0 -> eval (Const (Bool (a || b)) :: s0) t v p0
-     | _ :: _ :: s0           (* OrError1 *) -> eval [] ("Panic" :: t) v p0
-     | []                     (* OrError2 *) -> eval [] ("Panic" :: t) v p0
-     | _ :: []                (* OrError3 *) -> eval [] ("Panic" :: t) v p0)
-  | Not :: p0 ->
-    (match s with
-     | Const (Bool a) :: s0 (* NotStack  *) -> eval (Const (Bool (not a)) :: s0) t v p0
-     | _ :: s0      (* NotError1 *) -> eval [] ("Panic" :: t) v p0
-     | []           (* NotError2 *) -> eval [] ("Panic" :: t) v p0
-     | _ :: []      (* NotError3 *) -> eval [] ("Panic" :: t) v p0)
-  | Lt :: p0 ->
-    (match s with
-     | Const (Int i) :: Const (Int j) :: s0 -> eval (Const (Bool (i < j)) :: s0) t v p0
-     | _ :: _ :: s0          (* LtError1 *) -> eval [] ("Panic" :: t) v p0
-     | []                    (* LtError2 *) -> eval [] ("Panic" :: t) v p0
-     | _ :: []               (* LtError3 *) -> eval [] ("Panic" :: t) v p0)
-  | Gt :: p0 ->
-    (match s with
-     | Const (Int i) :: Const (Int j) :: s0 -> eval (Const (Bool (i > j)) :: s0) t v p0
-     | _ :: _ :: s0          (* GtError1 *) -> eval [] ("Panic" :: t) v p0
-     | []                    (* GtError2 *) -> eval [] ("Panic" :: t) v p0
-     | _ :: []               (* GtError3 *) -> eval [] ("Panic" :: t) v p0)
-  | IfElse (p1, p2) :: p0 ->
-    (match s with
-     | Const (Bool true) :: s0 -> eval s0 t v (p1 @ p0)
-     | Const (Bool false) :: s0 -> eval s0 t v (p2 @ p0)
-     | _ :: s0                 (* IfElseError *) -> eval [] ("Panic" :: t) v p0
-     | []                      (* IfElseError *) -> eval [] ("Panic" :: t) v p0)
-  | Bind :: p0 ->
-    (match s with
-     | Const (Symbol x) :: c :: s0 -> eval s0 t ((x, c) :: v) p0
-     | _ :: _ :: s0            (* BindError1 *) -> eval [] ("Panic" :: t) v p0
-     | []                      (* BindError2 *) -> eval [] ("Panic" :: t) v p0
-     | _ :: []                 (* BindError3 *) -> eval [] ("Panic" :: t) v p0)
-  | Lookup :: p0 ->
-    (match s with
-     | Const (Symbol x) :: s0 -> (match lookup x v with
-                                 | Some c -> eval (c :: s0) t v p0
-                                 | None -> eval [] ("Panic" :: t) v p0)
-     | _ :: s0                (* LookupError *) -> eval [] ("Panic" :: t) v p0
-     | []                     (* LookupError *) -> eval [] ("Panic" :: t) v p0)
-  | Fun (x, p1) :: p0 ->
-    let closure = { body = p1; env = v } in
-    eval (Closure closure :: s) t v p0
-  | Call :: p0 ->
-    (match s with
-     | Closure closure :: c :: s0 ->
-       let new_env = (x, c) :: closure.env in
-       eval [] t new_env (closure.body @ p0)
-     | _ :: _ :: s0           (* CallError1 *) -> eval [] ("Panic" :: t) v p0
-     | _ :: []                (* CallError2 *) -> eval [] ("Panic" :: t) v p0
-     | []                     (* CallError3 *) -> eval [] ("Panic" :: t) v p0)
-  | Return :: p0 ->
-    (match s with
-     | c :: s0 -> eval (c :: s0) t v p0
-     | _ :: s0 (* ReturnError *) -> eval [] ("Panic" :: t) v p0
-     | []       (* ReturnError *) -> eval [] ("Panic" :: t) v p0)
-  (* YOUR CODE *)
-  
+   | Return :: p0 -> (
+      match stack with
+      | Closure { name = _; env = closure_env; body = body_cmds } :: arg :: s0 -> (* RetStack *)
+        eval (arg :: s0) trace closure_env body_cmds
+      | _ :: _ :: s0 (* ReturnError1 *) -> "Panic" :: trace 
+      | []           (* ReturnError2 *) -> "Panic" :: trace 
+      | _ :: []      (* ReturnError3 *) -> "Panic" :: trace)
+
+(* YOUR CODE *)
 let interp (s : string) : string list option =
    match string_parse (whitespaces >> parse_coms()) s with
    | Some (p, []) -> Some (eval [] [] [] p)
