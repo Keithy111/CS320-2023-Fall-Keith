@@ -121,15 +121,16 @@ let rec str_of_nat (n : int) : string =
      string_append (str_of_nat n0) s
    else s
  
-let string_of_int (n : int) : string = 
+ let str_of_int (n : int) : string = 
    if n < 0 then
-      string_append "-" (str_of_nat (-n))
+     string_append "-" (str_of_nat (-n))
    else str_of_nat n
- 
- and toString (c : const) : string =
+
+let toString (c : const) : string =
    match c with
    | Int i -> string_of_int i
-   | Bool b -> string_of_bool b
+   | Bool true -> "True"
+   | Bool false -> "False"
    | Unit -> "Unit"
    | Sym s -> s
 
@@ -265,5 +266,5 @@ let rec eval (stack : value list) (trace : string list) (env : (string * value) 
 (* YOUR CODE *)
 let interp (s : string) : string list option =
    match string_parse (whitespaces >> parse_coms()) s with
-   | Some (p, []) -> Some (eval [] [] [] p)
+   | Some (prog, []) -> Some (eval [] [] [] prog)
    | _ -> None
