@@ -28,8 +28,7 @@ type closure = {
 and value =
    | Const of const
    | Closure of closure
-
-
+   
 type com =
   | Push of const
   | Pop
