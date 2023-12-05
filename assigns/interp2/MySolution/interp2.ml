@@ -259,7 +259,7 @@ let rec eval (s : stack) (t : trace) (v: env) (p : prog) : trace =
     (match s with
      | Const (Symbol sym) :: Const x :: s0 ->
         let closure = { body; env = v } in
-        eval (Closure closure :: s) t e p0
+        eval (Closure closure :: s) t v p0
      | _ :: s0      (* FunError1 *) -> eval [] ("Panic" :: t) v p0
      | []           (* FunError2 *) -> eval [] ("Panic" :: t) v p0)
   | Call :: p0 ->
