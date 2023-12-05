@@ -136,13 +136,6 @@ let toString (c : const) : string =
    | Unit -> "Unit"
    | Sym s -> s
 
-and loopThrough (sym: string) (env: (string * value) list) : value option =
-   match env with
-   | [] -> None
-   | (s, v) :: rest ->
-       if s = sym then Some v
-       else loopThrough sym rest
-
 let rec eval (stack : value list) (trace : string list) (env : (string * value) list) (prog : coms) : string list =
    match prog with
    | [] -> trace  (* termination returns trace *)
@@ -265,6 +258,13 @@ let rec eval (stack : value list) (trace : string list) (env : (string * value) 
       | []           (* ReturnError2 *) -> "Panic" :: trace 
       | _ :: []      (* ReturnError3 *) -> "Panic" :: trace)
 
+and loopThrough (sym: string) (env: (string * value) list) : value option =
+   match env with
+   | [] -> None
+   | (s, v) :: rest ->
+       if s = sym then Some v
+       else loopThrough sym rest
+       
 (* YOUR CODE *)
 let interp (s : string) : string list option =
    match string_parse (whitespaces >> parse_coms()) s with
