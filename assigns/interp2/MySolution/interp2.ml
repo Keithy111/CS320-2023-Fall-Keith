@@ -19,19 +19,6 @@ type const =
   | Unit
   | Sym of string
 
-type com =
-  | Push of const
-  | Pop
-  | Swap
-  | Trace
-  | Add | Sub | Mul | Div
-  | And | Or | Not
-  | Lt | Gt
-  | If of com list * com list                            (* If-Else End *)
-  | Bind | Lookup
-  | Fun of com list            
-  | Call | Return
-
 type closure = {
   name: string;
   env: (string * value) list;
@@ -41,6 +28,21 @@ type closure = {
 and value =
    | Const of const
    | Closure of closure
+
+
+type com =
+  | Push of const
+  | Pop
+  | Swap
+  | Trace
+  | Add | Sub | Mul | Div
+  | And | Or | Not
+  | Lt | Gt
+  | If of com list * com list                       
+  | Bind | Lookup
+  | Fun of com list            
+  | Call | Return
+
 
 type coms = com list
 
