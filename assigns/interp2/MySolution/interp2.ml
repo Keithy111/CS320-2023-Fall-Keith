@@ -274,7 +274,7 @@ let rec eval (s : stack) (t : trace) (v: env) (p : prog) : trace =
      | _ :: s0      (* ReturnError1 *) -> eval [] ("Panic" :: t) v p0
      | []           (* ReturnError2 *) -> eval [] ("Panic" :: t) v p0
      | _ :: []      (* ReturnError3 *) -> eval [] ("Panic" :: t) v p0)
-  | _ -> eval s ("Panic" :: t) e []
+  | _ -> eval s ("Panic" :: t) v []
 
 
   (* YOUR CODE *)
