@@ -81,16 +81,6 @@ let parse_const =
    parse_unit <|>
    (parse_sym >>= fun s -> pure (Sym s))
 
-(*
-  parse_string: Parses a string of characters using the get_char parser.
-*)
-let parse_string : string parser =
- fun ls ->
-   match get_char ls with
-   | Some (charList, rest) ->
-     Some (list_foldleft charList "" (fun acc c -> acc ^ get_char c), rest)
-   | None -> None
-
 (* parsing commands *)
 let rec parse_com () =
    parse_if_else () <|>
@@ -131,7 +121,7 @@ let rec str_of_nat (n : int) : string =
      string_append (str_of_nat n0) s
    else s
  
-let str_of_int (n : int) : string = 
+let string_of_int (n : int) : string = 
    if n < 0 then
       string_append "-" (str_of_nat (-n))
    else str_of_nat n
