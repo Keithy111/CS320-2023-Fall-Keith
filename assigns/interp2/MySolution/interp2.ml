@@ -160,6 +160,15 @@ let toString (c : const) : string =
    | Closure (s, v, p) -> 
       let s1 = string_append ("Fun<") (s) in
       string_append (s1) (">")
+
+let assoc_opt key lst =
+  let rec aux lst =
+    match lst with
+    | [] -> None
+    | (k, v) :: tail -> if k = key then Some v else aux tail
+  in
+  aux lst
+  
 let rec eval (s : stack) (t : trace) (v: env) (p : prog) : trace =
   match p with
   | [] -> t
