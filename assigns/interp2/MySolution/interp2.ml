@@ -57,20 +57,6 @@ let parse_unit =
   keyword "Unit" >> pure Unit
 
 (*
-   char_escaped: Takes a character and returns its escaped representation.
-   Handles specific escape cases for newline, tab, carriage return, backslash,
-   and single quote characters. Defaults to using the character as is.
-*)
-let char_escaped c =
-   match c with
-   | '\n' -> "\\n"
-   | '\t' -> "\\t"
-   | '\r' -> "\\r"
-   | '\\' -> "\\\\"
-   | '\'' -> "\\'"
-   | _    -> str c
-
-(*
   get_char: Parses a sequence of characters satisfying the char_isletter predicate.
   Wraps the list of characters in a list_make_fwork construct.
 *)
@@ -80,7 +66,6 @@ let get_char =
 
 (*
   parse_string: Parses a string of characters using the get_char parser.
-  Escapes each character using char_escaped and concatenates them using list_foldleft.
 *)
 let parse_string : string parser =
  fun ls ->
@@ -146,16 +131,12 @@ let str_of_int (n : int) : string =
       string_append "-" (str_of_nat (-n))
    else str_of_nat n
  
-let toString (c : const) : string =
+ and toString (c : const) : string =
    match c with
-   | Int i -> str_of_int i
-   | Bool true -> "True"
-   | Bool false -> "False"
+   | Int i -> string_of_int i
+   | Bool b -> string_of_bool b
    | Unit -> "Unit"
-   | Symbol s -> s
-   | Closure (s, v, p) -> 
-      let s1 = string_append ("Fun<") (s) in
-      string_append (s1) (">")
+   | Sym s -> s
 
 let rec eval (stack : value list) (trace : string list) (env : (string * value) list) (prog : coms) : string list =
    match prog with
