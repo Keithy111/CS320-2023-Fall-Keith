@@ -57,12 +57,29 @@ let parse_unit =
   keyword "Unit" >> pure Unit
 
 (*
-  get_char: Parses a sequence of characters satisfying the char_isletter predicate.
+  parse_char: Parses a sequence of characters satisfying the char_isletter predicate.
   Wraps the list of characters in a list_make_fwork construct.
 *)
-let get_char =
- let* chars = many (satisfy char_isletter) in
- pure (list_make_fwork (fun work -> list_foreach chars work))
+let parse_char =
+   satisfy (fun c -> ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z'))
+
+let parse_sym =
+   let* c1 = parse_char in
+   let* c_rest = many (parse_char <|> digit) in
+   let char_list = c1 :: c_rest in
+   let string_builder fwork =
+      let rec helper cs =
+         match cs with
+            | [] -> ()
+            | ch :: rest ->
+            fwork ch; helper rest in
+      helper char_list in
+   pure (string_make_fwork string_builder)
+let parse_const =
+   parse_int <|>
+   parse_bool <|>
+   parse_unit <|>
+   (parse_sym >>= fun s -> pure (Sym s))
 
 (*
   parse_string: Parses a string of characters using the get_char parser.
@@ -73,18 +90,6 @@ let parse_string : string parser =
    | Some (charList, rest) ->
      Some (list_foldleft charList "" (fun acc c -> acc ^ get_char c), rest)
    | None -> None
-
-(*
-  parse_symbol: Parses a symbol using parse_string followed by whitespaces.
-  Wraps the result in the Symbol constructor using pure.
-*)
-let parse_symbol =
- let* n = parse_string << whitespaces in pure (Symbol n)
- let parse_const =
-   parse_int <|>
-   parse_bool <|>
-   parse_unit <|>
-   parse_symbol
 
 (* parsing commands *)
 let rec parse_com () =
