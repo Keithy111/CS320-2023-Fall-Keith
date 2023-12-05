@@ -11,6 +11,7 @@ Notes:
 2. You may NOT use OCaml standard library functions directly.
 
 *)
+
 type const =
   | Int of int 
   | Bool of bool 
@@ -182,7 +183,7 @@ and stack = stack_item list
 let rec eval (s : stack) (t : trace) (v: env) (p : prog) : trace =
   match p with
   | [] -> t
-  | Push c :: p0 -> eval (Const c :: s) t v p0
+  | Push c :: p0 -> eval (c :: s) t v p0
   | PushClosure closure :: p0 -> eval (Closure closure :: s) t v p0
   | Pop :: p0 ->
     (match s with
@@ -242,61 +243,57 @@ let rec eval (s : stack) (t : trace) (v: env) (p : prog) : trace =
     (match s with
      | Const (Bool a) :: s0 (* NotStack  *) -> eval (Const (Bool (not a)) :: s0) t v p0
      | _ :: s0      (* NotError1 *) -> eval [] ("Panic" :: t) v p0
-     | []           (* NotError2 *) -> eval [] ("Panic" :: t) v p0)
+     | []           (* NotError2 *) -> eval [] ("Panic" :: t) v p0
+     | _ :: []      (* NotError3 *) -> eval [] ("Panic" :: t) v p0)
   | Lt :: p0 ->
     (match s with
-     | Const (Int i) :: Const (Int j) :: s0 (* GtStack *)  -> eval ((Const (Bool (i < j))) :: s0) t v p0
-     | _ :: _ :: s0         (* LtError1 *) -> eval [] ("Panic" :: t) v p0
-     | []                   (* LtError2 *) -> eval [] ("Panic" :: t) v p0
-     | _ :: []              (* LtError3 *) -> eval [] ("Panic" :: t) v p0)
+     | Const (Int i) :: Const (Int j) :: s0 -> eval (Const (Bool (i < j)) :: s0) t v p0
+     | _ :: _ :: s0          (* LtError1 *) -> eval [] ("Panic" :: t) v p0
+     | []                    (* LtError2 *) -> eval [] ("Panic" :: t) v p0
+     | _ :: []               (* LtError3 *) -> eval [] ("Panic" :: t) v p0)
   | Gt :: p0 ->
     (match s with
-     | Const (Int i) :: Const (Int j) :: s0 (* GtStack *)  -> eval ((Const (Bool (i > j))) :: s0) t v p0
-     | _ :: _ :: s0         (* GtError1 *) -> eval [] ("Panic" :: t) v p0
-     | []                   (* GtError2 *) -> eval [] ("Panic" :: t) v p0
-     | _ :: []              (* GtError3 *) -> eval [] ("Panic" :: t) v p0)
-  | IfElse(c1, c2) :: p0 ->
+     | Const (Int i) :: Const (Int j) :: s0 -> eval (Const (Bool (i > j)) :: s0) t v p0
+     | _ :: _ :: s0          (* GtError1 *) -> eval [] ("Panic" :: t) v p0
+     | []                    (* GtError2 *) -> eval [] ("Panic" :: t) v p0
+     | _ :: []               (* GtError3 *) -> eval [] ("Panic" :: t) v p0)
+  | IfElse (p1, p2) :: p0 ->
     (match s with
-     | Const (Bool b) :: s0 -> eval s0 t e (if b then list_append c1 p0 else list_append c2 p0)
-     | _ :: s0      (* IfElseError1 *) -> eval [] ("Panic" :: t) v p0
-     | []           (* IfElseError2 *) -> eval [] ("Panic" :: t) v p0)
+     | Const (Bool true) :: s0 -> eval s0 t v (p1 @ p0)
+     | Const (Bool false) :: s0 -> eval s0 t v (p2 @ p0)
+     | _ :: s0                 (* IfElseError *) -> eval [] ("Panic" :: t) v p0
+     | []                      (* IfElseError *) -> eval [] ("Panic" :: t) v p0)
   | Bind :: p0 ->
     (match s with
-     | Const (Symbol sym) :: Const x :: s0 -> eval s0 t ((sym, x) :: v) p0
-     | _ :: s0      (* BindError1 *) -> eval [] ("Panic" :: t) v p0
-     | []           (* BindError2 *) -> eval [] ("Panic" :: t) v p0
-     | _ :: []      (* BindError3 *) -> eval [] ("Panic" :: t) v p0)
+     | Const (Symbol x) :: c :: s0 -> eval s0 t ((x, c) :: v) p0
+     | _ :: _ :: s0            (* BindError1 *) -> eval [] ("Panic" :: t) v p0
+     | []                      (* BindError2 *) -> eval [] ("Panic" :: t) v p0
+     | _ :: []                 (* BindError3 *) -> eval [] ("Panic" :: t) v p0)
   | Lookup :: p0 ->
     (match s with
-     | Const (Symbol sym) :: s0 -> 
-       (match assoc_opt sym v with
-        | Some x -> eval (Const x :: s0) t v p0
-        | None      (* LookupError3 *) -> eval [] ("Panic" :: t) v p0)
-     | _ :: s0      (* LookupError1 *) -> eval [] ("Panic" :: t) v p0
-     | []           (* LookupError2 *) -> eval [] ("Panic" :: t) v p0)
-  | Fun (name, body) :: p0 ->
-    (match s with
-     | Const (Symbol sym) :: Const x :: s0 ->
-        let closure = { body; env = v } in
-        eval (Closure closure :: s) t v p0
-     | _ :: s0      (* FunError1 *) -> eval [] ("Panic" :: t) v p0
-     | []           (* FunError2 *) -> eval [] ("Panic" :: t) v p0)
+     | Const (Symbol x) :: s0 -> (match lookup x v with
+                                 | Some c -> eval (c :: s0) t v p0
+                                 | None -> eval [] ("Panic" :: t) v p0)
+     | _ :: s0                (* LookupError *) -> eval [] ("Panic" :: t) v p0
+     | []                     (* LookupError *) -> eval [] ("Panic" :: t) v p0)
+  | Fun (x, p1) :: p0 ->
+    let closure = { body = p1; env = v } in
+    eval (Closure closure :: s) t v p0
   | Call :: p0 ->
     (match s with
-     | Closure { body; env } :: s0 -> eval (Marker (s0, v) :: s0) t env body
-     | _ :: s0      (* CallError1 *) -> eval [] ("Panic" :: t) v p0
-     | []           (* CallError2 *) -> eval [] ("Panic" :: t) v p0
-     | _ :: []      (* CallError3 *) -> eval [] ("Panic" :: t) v p0)
+     | Closure closure :: c :: s0 ->
+       let new_env = (x, c) :: closure.env in
+       eval [] t new_env (closure.body @ p0)
+     | _ :: _ :: s0           (* CallError1 *) -> eval [] ("Panic" :: t) v p0
+     | _ :: []                (* CallError2 *) -> eval [] ("Panic" :: t) v p0
+     | []                     (* CallError3 *) -> eval [] ("Panic" :: t) v p0)
   | Return :: p0 ->
     (match s with
-     | Marker (s0, env0) :: _ -> eval s0 t env0 p0
-     | _ :: s0      (* ReturnError1 *) -> eval [] ("Panic" :: t) v p0
-     | []           (* ReturnError2 *) -> eval [] ("Panic" :: t) v p0
-     | _ :: []      (* ReturnError3 *) -> eval [] ("Panic" :: t) v p0)
-  | _ -> eval s ("Panic" :: t) v []
-
-
+     | c :: s0 -> eval (c :: s0) t v p0
+     | _ :: s0 (* ReturnError *) -> eval [] ("Panic" :: t) v p0
+     | []       (* ReturnError *) -> eval [] ("Panic" :: t) v p0)
   (* YOUR CODE *)
+  
 let interp (s : string) : string list option =
    match string_parse (whitespaces >> parse_coms()) s with
    | Some (p, []) -> Some (eval [] [] [] p)
