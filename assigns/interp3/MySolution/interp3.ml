@@ -327,62 +327,102 @@ let parse_prog (s : string) : expr =
   | Some (m, []) -> scope_expr m
   | _ -> raise SyntaxError
 
-let rec compile_expr scope = function
-  | Int i -> sprintf "Push %d; " i
-  | Bool b -> sprintf "Push %s; " (if b then "True" else "False")
-  | Unit -> "Push Unit; "
-  | UOpr (Neg, m) -> sprintf "%sPush -1; Mul; " (compile_expr scope m)
-  | UOpr (Not, m) -> sprintf "%sNot; " (compile_expr scope m)
-  | BOpr (op, m1, m2) ->
-      let op_str = match op with
-        | Add -> "Add"
-        | Sub -> "Sub"
-        | Mul -> "Mul"
-        | Div -> "Div"
-        | Mod -> "Mod"
-        | And -> "And"
-        | Or -> "Or"
-        | Lt -> "Lt"
-        | Gt -> "Gt"
-        | Lte -> "Lt; Not; "
-        | Gte -> "Gt; Not; "
-        | Eq -> "Lt; Not; Gt; Not; And; " in
-      sprintf "%s%s%sSwap; " (compile_expr scope m1) (compile_expr scope m2) op_str
-  | Var x ->
-      (match find_var scope x with
-      | None -> raise (UnboundVariable x)
-      | Some v -> sprintf "Push %s; Lookup; " v)
-  | Fun (f, x, m) ->
-      let fv = new_var f in
-      let xv = new_var x in
-      let f_scope = (f, fv) :: scope in
-      let x_scope = (x, xv) :: f_scope in
-      let body = compile_expr x_scope m in
-      sprintf "Push %s; Fun Push %s; Bind; %sSwap; Return; End; " fv xv body
-  | App (m1, m2) -> sprintf "%s%sSwap; Call; " (compile_expr scope m1) (compile_expr scope m2)
-  | Let (x, m1, m2) ->
-      let xv = new_var x in
-      let x_scope = (x, xv) :: scope in
-      sprintf "%sPush %s; Bind; %s" (compile_expr scope m1) xv (compile_expr x_scope m2)
-  | Seq (m1, m2) -> sprintf "%sPop; %s" (compile_expr scope m1) (compile_expr scope m2)
-  | Ifte (m, n1, n2) ->
-      let _if = compile_expr scope m in
-      let _then = compile_expr scope n1 in
-      let _else = compile_expr scope n2 in
-      sprintf "%sIf %sElse %sEnd; " _if _then _else
-  | Trace m -> sprintf "%sTrace; " (compile_expr scope m)
-  | _ -> failwith "Not implemented yet"
+let rec compile_expr (expr : expr) : string =
+  match expr with
+  | Int i -> (* Compile integer constant *)
+    string_append "Push " (str_of_int i)
+  | Bool b -> (* Compile boolean constant *)
+    if b then "Push True" else "Push False"
+  | Unit -> (* Compile unit constant *)
+    "Push Unit"
+  | UOpr (Neg, m) -> (* Compile unary negation *)
+    let compiled_m = compile_expr m in
+    string_append compiled_m "; Neg"
+  | UOpr (Not, m) -> (* Compile unary not *)
+    let compiled_m = compile_expr m in
+    string_append compiled_m  "; Not"
+  | BOpr (Add, m, n) -> (* Compile binary addition *)
+    let compiled_m = compile_expr m in
+    let compiled_n = compile_expr n in
+    string_append(string_append (string_append compiled_m  "; ") compiled_n) "; Add"
+  | BOpr (Sub, m, n) -> (* Compile binary subtraction *)
+    let compiled_m = compile_expr m in
+    let compiled_n = compile_expr n in
+    string_append (string_append (string_append compiled_m  "; ") compiled_n) "; Swap; Sub"
+  | BOpr (Mul, m, n) -> (* Compile binary multiplication *)
+    let compiled_m = compile_expr m in
+    let compiled_n = compile_expr n in
+    string_append(string_append (string_append compiled_m  "; ") compiled_n) "; Mul"
+  | BOpr (Div, m, n) -> (* Compile binary division *)
+    let compiled_m = compile_expr m in
+    let compiled_n = compile_expr n in
+    string_append (string_append (string_append compiled_m  "; ") compiled_n) "; Swap; Div"
+  | BOpr (Mod, m, n) -> (* Compile binary modulo *)
+    let compiled_m = compile_expr m in
+    let compiled_n = compile_expr n in
+    string_append (string_append (string_append compiled_m  "; ") compiled_n) "; Swap; Mod"
+  | BOpr (And, m, n) -> (* Compile binary AND *)
+    let compiled_m = compile_expr m in
+    let compiled_n = compile_expr n in
+    string_append(string_append (string_append compiled_m  "; ") compiled_n) "; And"
+  | BOpr (Or, m, n) -> (* Compile binary OR *)
+    let compiled_m = compile_expr m in
+    let compiled_n = compile_expr n in
+    string_append(string_append (string_append compiled_m  "; ") compiled_n) "; Or"
+  | BOpr (Lt, m, n) -> (* Compile binary less than *)
+    let compiled_m = compile_expr m in
+    let compiled_n = compile_expr n in
+    string_append (string_append (string_append compiled_m  "; ") compiled_n) "; Swap; Lt"
+  | BOpr (Gt, m, n) -> (* Compile binary greater than *)
+    let compiled_m = compile_expr m in
+    let compiled_n = compile_expr n in
+    string_append (string_append (string_append compiled_m  "; ") compiled_n) "; Swap; Gt"
+  | BOpr (Lte, m, n) -> (* Compile binary less than or equal to *)
+    let compiled_m = compile_expr m in
+    let compiled_n = compile_expr n in
+    string_append (string_append (string_append compiled_m  "; ") compiled_n) "; Swap; Lte"
+  | BOpr (Gte, m, n) -> (* Compile binary greater than or equal to *)
+    let compiled_m = compile_expr m in
+    let compiled_n = compile_expr n in
+    string_append (string_append (string_append compiled_m  "; ") compiled_n) "; Swap; Gte"
+  | BOpr (Eq, m, n) -> (* Compile binary equality *)
+    let compiled_m = compile_expr m in
+    let compiled_n = compile_expr n in
+    string_append(string_append (string_append compiled_m  "; ") compiled_n) "; Eq"
 
-and compile_eq scope m1 m2 =
-  let less_than = compile_expr scope (BOpr (Lt, m1, m2)) in
-  let great_than = compile_expr scope (BOpr (Gt, m1, m2)) in
-  sprintf "%sNot; %sNot; And; " less_than great_than
+  | Var x -> (* Compile variable access *)
+    string_append(string_append "Push " x) "; Lookup"
 
-and compile_mod scope m1 m2 =
-  let divide = compile_expr scope (BOpr (Div, m1, m2)) in
-  let cm2 = compile_expr scope m2 in
-  let cm1 = compile_expr scope m1 in
-  sprintf "%s%sMul; %sSub; " divide cm2 cm1
+  | Fun (f, x, body) -> (* Compile function definition *)
+    let compiled_body = compile_expr body in
+    string_append(string_append(string_append(string_append(string_append(string_append "Push " f) "; Fun Push ") x) "; Bind; ") compiled_body) "; Swap; Return; End"  
+
+  | App (fun_expr, arg_expr) -> (* Compile function application *)
+    let compiled_fun = compile_expr fun_expr in
+    let compiled_arg = compile_expr arg_expr in
+    string_append(string_append(string_append compiled_arg "; ")  compiled_fun) "; Call"
+
+  | Let (x, m, n) -> (* Compile let binding *)
+    let compiled_m = compile_expr m in
+    let compiled_n = compile_expr n in
+    string_append(string_append(string_append(string_append compiled_m "; Push ") x) "; Bind; ") compiled_n
+
+  | Seq (m, n) -> (* Compile sequence expression *)
+    let compiled_m = compile_expr m in
+    let compiled_n = compile_expr n in
+    string_append(string_append compiled_m "; Pop; ") compiled_n
+
+  | Ifte (cond, true_branch, false_branch) -> (* Compile if-then-else *)
+    let compiled_cond = compile_expr cond in
+    let compiled_true = compile_expr true_branch in
+    let compiled_false = compile_expr false_branch in
+    string_append(string_append(string_append(string_append(string_append compiled_cond "; If ") compiled_true) "; Else ") compiled_false) "; End" 
+
+  | Trace m -> (* Compile trace expression *)
+    let compiled_m = compile_expr m in
+    string_append compiled_m  "; Trace"
 
 let compile (s : string) : string =
-  compile_expr [] (scope_expr (parse_prog s))
+  let parsed_expr = parse_prog s in
+  let compiled_expr = compile_expr parsed_expr in
+  string_append compiled_expr ";"
