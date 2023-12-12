@@ -322,6 +322,11 @@ let scope_expr (m : expr) : expr =
 
 (* parser for the high-level language *)
 
+let parse_prog (s : string) : expr =
+  match string_parse (whitespaces >> parse_expr ()) s with
+  | Some (m, []) -> scope_expr m
+  | _ -> raise SyntaxError
+
 let rec compile_expr scope = function
   | Int i -> sprintf "Push %d; " i
   | Bool b -> sprintf "Push %s; " (if b then "True" else "False")
