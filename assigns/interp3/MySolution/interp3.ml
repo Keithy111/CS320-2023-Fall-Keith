@@ -321,108 +321,89 @@ let scope_expr (m : expr) : expr =
 (* ------------------------------------------------------------ *)
 
 (* parser for the high-level language *)
-
-let parse_prog (s : string) : expr =
-  match string_parse (whitespaces >> parse_expr ()) s with
-  | Some (m, []) -> scope_expr m
+let parse_prog (source_code: string): expr =
+  match string_parse (whitespaces >> parse_expr ()) source_code with
+  | Some (parsed_expr, []) -> scope_expr parsed_expr
   | _ -> raise SyntaxError
 
-let rec compile_expr (expr : expr) : string =
-  match expr with
-  | Int i -> (* Compile integer constant *)
-    string_append "Push " (str_of_int i)
-  | Bool b -> (* Compile boolean constant *)
-    if b then "Push True" else "Push False"
-  | Unit -> (* Compile unit constant *)
-    "Push Unit"
-  | UOpr (Neg, m) -> (* Compile unary negation *)
-    let compiled_m = compile_expr m in
-    string_append compiled_m "; Neg"
-  | UOpr (Not, m) -> (* Compile unary not *)
-    let compiled_m = compile_expr m in
-    string_append compiled_m  "; Not"
-  | BOpr (Add, m, n) -> (* Compile binary addition *)
-    let compiled_m = compile_expr m in
-    let compiled_n = compile_expr n in
-    string_append(string_append (string_append compiled_m  "; ") compiled_n) "; Add"
-  | BOpr (Sub, m, n) -> (* Compile binary subtraction *)
-    let compiled_m = compile_expr m in
-    let compiled_n = compile_expr n in
-    string_append (string_append (string_append compiled_m  "; ") compiled_n) "; Swap; Sub"
-  | BOpr (Mul, m, n) -> (* Compile binary multiplication *)
-    let compiled_m = compile_expr m in
-    let compiled_n = compile_expr n in
-    string_append(string_append (string_append compiled_m  "; ") compiled_n) "; Mul"
-  | BOpr (Div, m, n) -> (* Compile binary division *)
-    let compiled_m = compile_expr m in
-    let compiled_n = compile_expr n in
-    string_append (string_append (string_append compiled_m  "; ") compiled_n) "; Swap; Div"
-  | BOpr (Mod, m, n) -> (* Compile binary modulo *)
-    let compiled_m = compile_expr m in
-    let compiled_n = compile_expr n in
-    string_append (string_append (string_append compiled_m  "; ") compiled_n) "; Swap; Mod"
-  | BOpr (And, m, n) -> (* Compile binary AND *)
-    let compiled_m = compile_expr m in
-    let compiled_n = compile_expr n in
-    string_append(string_append (string_append compiled_m  "; ") compiled_n) "; And"
-  | BOpr (Or, m, n) -> (* Compile binary OR *)
-    let compiled_m = compile_expr m in
-    let compiled_n = compile_expr n in
-    string_append(string_append (string_append compiled_m  "; ") compiled_n) "; Or"
-  | BOpr (Lt, m, n) -> (* Compile binary less than *)
-    let compiled_m = compile_expr m in
-    let compiled_n = compile_expr n in
-    string_append (string_append (string_append compiled_m  "; ") compiled_n) "; Swap; Lt"
-  | BOpr (Gt, m, n) -> (* Compile binary greater than *)
-    let compiled_m = compile_expr m in
-    let compiled_n = compile_expr n in
-    string_append (string_append (string_append compiled_m  "; ") compiled_n) "; Swap; Gt"
-  | BOpr (Lte, m, n) -> (* Compile binary less than or equal to *)
-    let compiled_m = compile_expr m in
-    let compiled_n = compile_expr n in
-    string_append (string_append (string_append compiled_m  "; ") compiled_n) "; Swap; Lte"
-  | BOpr (Gte, m, n) -> (* Compile binary greater than or equal to *)
-    let compiled_m = compile_expr m in
-    let compiled_n = compile_expr n in
-    string_append (string_append (string_append compiled_m  "; ") compiled_n) "; Swap; Gte"
-  | BOpr (Eq, m, n) -> (* Compile binary equality *)
-    let compiled_m = compile_expr m in
-    let compiled_n = compile_expr n in
-    string_append(string_append (string_append compiled_m  "; ") compiled_n) "; Eq"
+let concat_string (first: string) (second: string): string =
+  let first_len = String.length first in
+  let second_len = String.length second in
+  let combined_len = first_len + second_len in
+  String.init combined_len (fun index ->
+    if index < first_len then first.[index]
+    else second.[index - first_len]
+  )
 
-  | Var x -> (* Compile variable access *)
-    string_append(string_append "Push " x) "; Lookup"
+let rec compile_expr scope = function
+  | Int i -> concat_string "Push " (concat_string (string_of_int i) "; ")
+  | Bool b -> concat_string "Push " (concat_string (if b then "True" else "False") "; ")
+  | Unit -> "Push Unit; "
+  | UOpr (Neg, m) -> concat_string (compile_expr scope m) "Push -1; Mul; "
+  | UOpr (Not, m) -> concat_string (compile_expr scope m) "Not; "
+  | BOpr (Add, m1, m2) -> concat_string (concat_string (compile_expr scope m1) (compile_expr scope m2)) "Swap; Add; "
+  | BOpr (Sub, m1, m2) -> concat_string (concat_string (compile_expr scope m1) (compile_expr scope m2)) "Swap; Sub; "
+  | BOpr (Mul, m1, m2) -> concat_string (concat_string (compile_expr scope m1) (compile_expr scope m2)) "Swap; Mul; "
+  | BOpr (Div, m1, m2) -> concat_string (concat_string (compile_expr scope m1) (compile_expr scope m2)) "Swap; Div; "
+  | BOpr (Mod, m1, m2) -> compile_mod scope m1 m2
+  | BOpr (And, m1, m2) -> concat_string (concat_string (compile_expr scope m1) (compile_expr scope m2)) "And; "
+  | BOpr (Or, m1, m2) -> concat_string (concat_string (compile_expr scope m1) (compile_expr scope m2)) "Or; "
+  | BOpr (Lt, m1, m2) -> concat_string (concat_string (compile_expr scope m1) (compile_expr scope m2)) "Swap; Lt; "
+  | BOpr (Gt, m1, m2) -> concat_string (concat_string (compile_expr scope m1) (compile_expr scope m2)) "Swap; Gt; "
+  | BOpr (Lte, m1, m2) -> concat_string (concat_string (compile_expr scope m1) (compile_expr scope m2)) "Swap; Gt; Not; "
+  | BOpr (Gte, m1, m2) -> concat_string (concat_string (compile_expr scope m1) (compile_expr scope m2)) "Swap; Lt; Not; "
+  | BOpr (Eq, m1, m2) -> compile_eq scope m1 m2
+  | Var x ->
+    (match find_var scope x with
+      | None -> raise (UnboundVariable x)
+      | Some v -> concat_string "Push " (concat_string v "; Lookup; "))
+  | Fun (f, x, m) -> compile_fun scope f x m
+  | App (m1, m2) -> concat_string (concat_string (compile_expr scope m1) (compile_expr scope m2)) "Swap; Call; "
+  | Let (x, m1, m2) -> compile_let scope x m1 m2
+  | Seq (m1, m2) -> concat_string (concat_string (compile_expr scope m1) "Pop; ") (compile_expr scope m2)
+  | Ifte (m, n1, n2) -> compile_ifte scope m n1 n2
+  | Trace m -> concat_string (compile_expr scope m) "Trace; "
+  | _ -> failwith "Not implemented yet"
 
-  | Fun (f, x, body) -> (* Compile function definition *)
-    let compiled_body = compile_expr body in
-    string_append(string_append(string_append(string_append(string_append(string_append "Push " f) "; Fun Push ") x) "; Bind; ") compiled_body) "; Swap; Return; End"  
+and compile_mod scope m1 m2 =
+  let cm1 = compile_expr scope m1 in
+  let cm2 = compile_expr scope m2 in
+  (* m1/m2 *)
+  let divide = compile_expr scope (BOpr (Div, m1, m2)) in
+  (* m1 - (m1/m2) * m2 *)
+  concat_string (concat_string divide (concat_string cm2 "Mul; ")) (concat_string cm1 "Sub; ")
 
-  | App (fun_expr, arg_expr) -> (* Compile function application *)
-    let compiled_fun = compile_expr fun_expr in
-    let compiled_arg = compile_expr arg_expr in
-    string_append(string_append(string_append compiled_arg "; ")  compiled_fun) "; Call"
+and compile_eq scope m1 m2 = (* equivalent to NOT (Lt or Gt) *)
+  let less_than = compile_expr scope (BOpr (Lt, m1, m2)) in
+  let great_than = compile_expr scope (BOpr (Gt, m1, m2)) in
+  concat_string (concat_string less_than "Not; ") (concat_string great_than "Not; And; ")
 
-  | Let (x, m, n) -> (* Compile let binding *)
-    let compiled_m = compile_expr m in
-    let compiled_n = compile_expr n in
-    string_append(string_append(string_append(string_append compiled_m "; Push ") x) "; Bind; ") compiled_n
+and compile_fun scope f x m =
+  let fv = new_var f in                   (* new variable name for function *)
+  let f_scope = (f, fv) :: scope in       (* add f to scope *)
+  let xv = new_var x in                   (* new variable name for parameter *)
+  let x_f_scope = (x, xv) :: f_scope in   (* add x to scope *)
+  let body = compile_expr x_f_scope m in  (* compile function with updated scope *)
+  concat_string
+    (concat_string (concat_string "Push " (concat_string fv "; Fun "))
+                   (concat_string "Push " (concat_string xv "; Bind; ")))
+    (concat_string body "Swap; Return; End; ")
 
-  | Seq (m, n) -> (* Compile sequence expression *)
-    let compiled_m = compile_expr m in
-    let compiled_n = compile_expr n in
-    string_append(string_append compiled_m "; Pop; ") compiled_n
+and compile_let scope x m n =
+  let cm = compile_expr scope m in    (* compile expression *)
+  let xv = new_var x in               (* new variable name for the bound *)
+  let x_scope = (x, xv) :: scope in   (* add bound to scope *)
+  let cn = compile_expr x_scope n in  (* compile expression with updated scope *)
+  concat_string (concat_string cm (concat_string "Push " (concat_string xv "; ")))
+                (concat_string "Bind; " cn)
 
-  | Ifte (cond, true_branch, false_branch) -> (* Compile if-then-else *)
-    let compiled_cond = compile_expr cond in
-    let compiled_true = compile_expr true_branch in
-    let compiled_false = compile_expr false_branch in
-    string_append(string_append(string_append(string_append(string_append compiled_cond "; If ") compiled_true) "; Else ") compiled_false) "; End" 
-
-  | Trace m -> (* Compile trace expression *)
-    let compiled_m = compile_expr m in
-    string_append compiled_m  "; Trace"
+and compile_ifte scope m n1 n2 =
+  let _if = compile_expr scope m in     (* compile if expression *)
+  let _then = compile_expr scope n1 in  (* compile then expression *)
+  let _else = compile_expr scope n2 in  (* compile else expression *)
+  (* Construct the if-then-else logic using stack commands *)
+  concat_string (concat_string _if "If ")
+                (concat_string _then (concat_string "Else " (concat_string _else "End; ")))
 
 let compile (s : string) : string =
-  let parsed_expr = parse_prog s in
-  let compiled_expr = compile_expr parsed_expr in
-  string_append compiled_expr ";"
+  compile_expr [] (scope_expr (parse_prog s))
