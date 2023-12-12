@@ -1,5 +1,4 @@
 #use "./../../../classlib/OCaml/MyOCaml.ml";;
-
 (*
 
 Please implement the [compile] function following the
@@ -323,9 +322,62 @@ let scope_expr (m : expr) : expr =
 
 (* parser for the high-level language *)
 
-let parse_prog (s : string) : expr =
-  match string_parse (whitespaces >> parse_expr ()) s with
-  | Some (m, []) -> scope_expr m
-  | _ -> raise SyntaxError
+let rec compile_expr scope = function
+  | Int i -> sprintf "Push %d; " i
+  | Bool b -> sprintf "Push %s; " (if b then "True" else "False")
+  | Unit -> "Push Unit; "
+  | UOpr (Neg, m) -> sprintf "%sPush -1; Mul; " (compile_expr scope m)
+  | UOpr (Not, m) -> sprintf "%sNot; " (compile_expr scope m)
+  | BOpr (op, m1, m2) ->
+      let op_str = match op with
+        | Add -> "Add"
+        | Sub -> "Sub"
+        | Mul -> "Mul"
+        | Div -> "Div"
+        | Mod -> "Mod"
+        | And -> "And"
+        | Or -> "Or"
+        | Lt -> "Lt"
+        | Gt -> "Gt"
+        | Lte -> "Lt; Not; "
+        | Gte -> "Gt; Not; "
+        | Eq -> "Lt; Not; Gt; Not; And; " in
+      sprintf "%s%s%sSwap; " (compile_expr scope m1) (compile_expr scope m2) op_str
+  | Var x ->
+      (match find_var scope x with
+      | None -> raise (UnboundVariable x)
+      | Some v -> sprintf "Push %s; Lookup; " v)
+  | Fun (f, x, m) ->
+      let fv = new_var f in
+      let xv = new_var x in
+      let f_scope = (f, fv) :: scope in
+      let x_scope = (x, xv) :: f_scope in
+      let body = compile_expr x_scope m in
+      sprintf "Push %s; Fun Push %s; Bind; %sSwap; Return; End; " fv xv body
+  | App (m1, m2) -> sprintf "%s%sSwap; Call; " (compile_expr scope m1) (compile_expr scope m2)
+  | Let (x, m1, m2) ->
+      let xv = new_var x in
+      let x_scope = (x, xv) :: scope in
+      sprintf "%sPush %s; Bind; %s" (compile_expr scope m1) xv (compile_expr x_scope m2)
+  | Seq (m1, m2) -> sprintf "%sPop; %s" (compile_expr scope m1) (compile_expr scope m2)
+  | Ifte (m, n1, n2) ->
+      let _if = compile_expr scope m in
+      let _then = compile_expr scope n1 in
+      let _else = compile_expr scope n2 in
+      sprintf "%sIf %sElse %sEnd; " _if _then _else
+  | Trace m -> sprintf "%sTrace; " (compile_expr scope m)
+  | _ -> failwith "Not implemented yet"
 
-let compile (s : string) : string = (* YOUR CODE *)
+and compile_eq scope m1 m2 =
+  let less_than = compile_expr scope (BOpr (Lt, m1, m2)) in
+  let great_than = compile_expr scope (BOpr (Gt, m1, m2)) in
+  sprintf "%sNot; %sNot; And; " less_than great_than
+
+and compile_mod scope m1 m2 =
+  let divide = compile_expr scope (BOpr (Div, m1, m2)) in
+  let cm2 = compile_expr scope m2 in
+  let cm1 = compile_expr scope m1 in
+  sprintf "%s%sMul; %sSub; " divide cm2 cm1
+
+let compile (s : string) : string =
+  compile_expr [] (scope_expr (parse_prog s))
