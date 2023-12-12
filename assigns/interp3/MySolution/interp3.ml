@@ -326,6 +326,7 @@ let parse_prog (source_code: string): expr =
   | Some (parsed_expr, []) -> scope_expr parsed_expr
   | _ -> raise SyntaxError
 
+(* Concatenates two strings by interleaving their characters. *)
 let concat_string (first: string) (second: string): string =
   let first_len = String.length first in
   let second_len = String.length second in
@@ -365,45 +366,47 @@ let rec compile_expr scope = function
   | Trace m -> concat_string (compile_expr scope m) "Trace; "
   | _ -> failwith "Not implemented yet"
 
+(* Compiles a modulo operation in the form (m1 mod m2). *)
 and compile_mod scope m1 m2 =
   let cm1 = compile_expr scope m1 in
   let cm2 = compile_expr scope m2 in
-  (* m1/m2 *)
   let divide = compile_expr scope (BOpr (Div, m1, m2)) in
-  (* m1 - (m1/m2) * m2 *)
   concat_string (concat_string divide (concat_string cm2 "Mul; ")) (concat_string cm1 "Sub; ")
 
-and compile_eq scope m1 m2 = (* equivalent to NOT (Lt or Gt) *)
+(* Compiles an equality check in the form (m1 = m2). *)
+and compile_eq scope m1 m2 =
   let less_than = compile_expr scope (BOpr (Lt, m1, m2)) in
   let great_than = compile_expr scope (BOpr (Gt, m1, m2)) in
   concat_string (concat_string less_than "Not; ") (concat_string great_than "Not; And; ")
 
+(* Compiles a function definition with parameters and body. *)
 and compile_fun scope f x m =
-  let fv = new_var f in                   (* new variable name for function *)
-  let f_scope = (f, fv) :: scope in       (* add f to scope *)
-  let xv = new_var x in                   (* new variable name for parameter *)
-  let x_f_scope = (x, xv) :: f_scope in   (* add x to scope *)
-  let body = compile_expr x_f_scope m in  (* compile function with updated scope *)
+  let fv = new_var f in
+  let f_scope = (f, fv) :: scope in
+  let xv = new_var x in
+  let x_f_scope = (x, xv) :: f_scope in
+  let body = compile_expr x_f_scope m in
   concat_string
     (concat_string (concat_string "Push " (concat_string fv "; Fun "))
                    (concat_string "Push " (concat_string xv "; Bind; ")))
     (concat_string body "Swap; Return; End; ")
 
+(* Compiles a let-binding expression. *)
 and compile_let scope x m n =
-  let cm = compile_expr scope m in    (* compile expression *)
-  let xv = new_var x in               (* new variable name for the bound *)
-  let x_scope = (x, xv) :: scope in   (* add bound to scope *)
-  let cn = compile_expr x_scope n in  (* compile expression with updated scope *)
+  let cm = compile_expr scope m in
+  let xv = new_var x in
+  let x_scope = (x, xv) :: scope in
+  let cn = compile_expr x_scope n in
   concat_string (concat_string cm (concat_string "Push " (concat_string xv "; ")))
                 (concat_string "Bind; " cn)
 
+(* Compiles an if-then-else expression. *)
 and compile_ifte scope m n1 n2 =
-  let _if = compile_expr scope m in     (* compile if expression *)
-  let _then = compile_expr scope n1 in  (* compile then expression *)
-  let _else = compile_expr scope n2 in  (* compile else expression *)
-  (* Construct the if-then-else logic using stack commands *)
+  let _if = compile_expr scope m in
+  let _then = compile_expr scope n1 in
+  let _else = compile_expr scope n2 in
   concat_string (concat_string _if "If ")
                 (concat_string _then (concat_string "Else " (concat_string _else "End; ")))
 
-let compile (s : string) : string =
+let compile (s : string) : string = (* YOUR CODE *)
   compile_expr [] (scope_expr (parse_prog s))
