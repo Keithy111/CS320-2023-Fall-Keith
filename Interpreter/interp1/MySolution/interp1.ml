@@ -1,4 +1,4 @@
-#use "./../../../classlib/OCaml/MyOCaml.ml";;
+#use "./../../../library/OCaml/MyOCaml.ml";;
 
 (* abstract syntax tree of interp1 *)
 type const =
